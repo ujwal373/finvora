@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0c0e" />
+    <meta name="description" content="FinVora by AccoFinTra. Enter the World of Finance. An educational 3D financial simulation." />
+    <title>FinVora · Enter the World of Finance</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0c0e'/%3E%3Cpath d='M18 46V18h26v6H25v6h15v6H25v10z' fill='%23d4a846'/%3E%3Ccircle cx='46' cy='44' r='4' fill='%232fbf71'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="boot" class="boot">
+      <div class="boot-logo">FIN<span>VORA</span></div>
+      <div class="boot-sub">Loading the city…</div>
+    </div>
+    <div id="app">
+      <canvas id="world"></canvas>
+      <div id="hud-root"></div>
+      <div id="overlay-root"></div>
+      <div id="auth-root"></div>
+    </div>
+    <noscript>FinVora needs JavaScript and WebGL to run.</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "finvora",
+  "version": "0.1.0",
+  "description": "FinVora by AccoFinTra: an interactive 3D financial city (educational simulation)",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
+    "idb-keyval": "^6.3.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.8",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.1.1"
+  },
+  "private": true,
+  "type": "module"
+}
