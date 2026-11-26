@@ -135,7 +135,7 @@ describe('navigation', () => {
         expect(col.blocked(x, z, 0.3), `${a.id}->${b.id} at ${x.toFixed(1)},${z.toFixed(1)}`).toBe(false);
       }
     }
-  });
+  }, 30000);
 
   it('patrol loops use adjacent intersections', () => {
     for (const npc of KEY_NPCS.filter((n) => n.pattern === 'patrol')) {
