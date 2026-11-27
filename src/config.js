@@ -2,7 +2,8 @@
 
 export const CITY = {
   // Boulevard centre lines. Blocks sit between them, centred on -50, 0, 50.
-  // 9 × 9 blocks, about 460 m across. The original 5 × 5 core sits in the middle.
+  // 9 × 9 blocks, about 460 m across: compact enough that every landmark is a short walk or drive away.
+  // AccoFinTra Tower stands on the centre block at the spawn.
   roadXs: [-225, -175, -125, -75, -25, 25, 75, 125, 175, 225],
   roadZs: [-225, -175, -125, -75, -25, 25, 75, 125, 175, 225],
   blocks: [-200, -150, -100, -50, 0, 50, 100, 150, 200],
@@ -11,7 +12,7 @@ export const CITY = {
   laneOffset: 1.75, // cars keep left (India): lane centre 1.75 m left of the centre line
   walkOffset: 4.3, // pedestrians walk on the pavement 4.3 m from the centre line
   bound: 232, // walkable half-extent
-  groundHalf: 320,
+  groundHalf: 330,
 };
 
 export const STARTING_BALANCE = 1000000; // ₹10,00,000 virtual (simulated) money
@@ -27,7 +28,7 @@ export const PLAYER = {
   radius: 0.45,
   jumpVelocity: 5.2,
   gravity: 16,
-  spawn: { x: 0, z: 14, rot: Math.PI },
+  spawn: { x: 0, z: 17, rot: Math.PI }, // on the plaza, facing AccoFinTra Tower
 };
 
 export const INTERACT = { npcRange: 2.8, doorRange: 3.6 };

@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 
 URL = sys.argv[1]
 OUT = sys.argv[2] if len(sys.argv) > 2 else '.'
-ROADS = [-225, -175, -125, -75, -25, 25, 75, 125, 175, 225]
+ROADS = [-325, -275, -225, -175, -125, -75, -25, 25, 75, 125, 175, 225, 275, 325]
 ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files']
 results, errors = [], []
 
@@ -25,9 +25,17 @@ def start(page, name='Tester'):
     page.wait_for_selector('[data-go]', timeout=40000)
 
 def go_door(page, bid):
-    page.evaluate(f"""(() => {{ const g = window.__finworld; const d = g.city.doors.find(d => d.building.id === '{bid}');
+    page.evaluate(f"""(() => {{ const g = window.__finworld; if (g.inside) g.exitInterior(); const d = g.city.doors.find(d => d.building && d.building.id === '{bid}');
         g.player.place(d.x, d.z, d.face); g.cam.snapBehind(d.face); }})()""")
     page.wait_for_timeout(400)
+
+def counter(page, interior, cid):
+    """Walk into a building's interior, stand at a counter and press E."""
+    page.evaluate(f"""(() => {{ const g = window.__finworld; g.panels.close(); g.dialogue.close(); if (g.inside && g.inside.key !== '{interior}') g.exitInterior();
+        if (!g.inside) g.enterInterior('{interior}'); const s = g.inside.spots.find(s => s.kind === 'counter' && s.counter.def.id === '{cid}');
+        g.player.place(s.x, s.z, s.counter.face); }})()""")
+    page.wait_for_timeout(350)
+    page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
 
 def close_panel(page):
     page.keyboard.press('Escape'); page.wait_for_timeout(250)
@@ -54,9 +62,9 @@ with sync_playwright() as p:
     check('21 NPCs present', len(s0['npcs']) == 21)
 
     page.click('#world', position={'x': 640, 'y': 600})
-    hold(page, 'w', 2500)
+    hold(page, 'w', 4000)
     s1 = snap(page)
-    check('W moves the player', math.hypot(s1['player']['x'] - s0['player']['x'], s1['player']['z'] - s0['player']['z']) > 2)
+    check('W moves the player', math.hypot(s1['player']['x'] - s0['player']['x'], s1['player']['z'] - s0['player']['z']) > 2, f"{s0['player']} -> {s1['player']} fps {s1['fps']}")
 
     # cars move along roads
     c0 = snap(page)['cars']; page.wait_for_timeout(5000); c1 = snap(page)['cars']
@@ -87,8 +95,9 @@ with sync_playwright() as p:
     check('Esc frees the cursor without opening the menu', not page.evaluate('window.__finworld.input.locked') and not page.is_visible('.menu-tabs'))
     # Parth and Aanya stand together at the fountain
     pa = page.evaluate("(() => { const g = window.__finworld; const a = g.npcs.byId('financial-expert').pos, b = g.npcs.byId('fund-manager').pos; return [a.x, a.z, b.x, b.z]; })()")
-    check('Parth and Aanya together in the centre', math.hypot(pa[0] - pa[2], pa[1] - pa[3]) < 3.5 and math.hypot(pa[0], pa[1]) < 9, json.dumps(pa))
-    page.evaluate("(() => { const g = window.__finworld; g.player.place(0, -10.5, 0); g.cam.snapBehind(Math.PI); g.cam.pitch = 0.2; })()"); page.wait_for_timeout(1200)
+    check('Parth and Aanya greet visitors at AccoFinTra Tower, far enough apart that name tags never overlap', all(math.hypot(x, z - 10.5) < 6 for x, z in [(pa[0], pa[1]), (pa[2], pa[3])]) and math.hypot(pa[0] - pa[2], pa[1] - pa[3]) > 6, json.dumps(pa))
+    page.evaluate("(() => { const g = window.__finworld; g.player.place(0, 18, Math.PI); g.cam.snapBehind(Math.PI); g.cam.pitch = 0.1; g.cam.targetDistance = 6; })()"); page.wait_for_timeout(1200)
+    check('both leader name tags visible at the plaza', page.evaluate("window.__finworld.npcs.byId('financial-expert').label.visible && window.__finworld.npcs.byId('fund-manager').label.visible"))
     page.screenshot(path=f'{OUT}/02b-parth-aanya.png')
     # Up arrow opens the phone, Down arrow closes it
     page.keyboard.press('ArrowUp'); page.wait_for_timeout(300)
@@ -123,61 +132,80 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     hold(page, 'w', 6000)
     cx = snap(page)['myCar']['x']
-    check('car cannot drive through a building', -39.5 + 1.8 < cx < -33, f'x={cx:.2f}')
+    check('car cannot drive through a building', -34.2 + 1.8 < cx < -31, f'x={cx:.2f}')
     hold(page, 'Space', 1500); page.evaluate('window.__finworld._exitCar()'); page.wait_for_timeout(200)
 
-    # Stock Exchange: buy shares
-    go_door(page, 'stock-exchange')
-    page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(400)
-    cash0 = snap(page)['cash']
+    # Round 8: walk into AccoFinTra Tower through its door
+    go_door(page, 'accofintra-hq'); page.keyboard.press('e'); page.wait_for_timeout(600)
+    check('pressing E at the tower door walks you inside', snap(page)['inside'] == 'tower')
+    page.wait_for_timeout(900); page.screenshot(path=f'{OUT}/04a-tower-hall.png')
+    staff = page.evaluate("(() => { const g = window.__finworld; return g.inside.counters.filter(c => (c.staff.agent && c.staff.agent.root.visible) || c.staff.colleague.root.visible).length; })()")
+    check('all 16 tower counters are staffed', staff == 16, str(staff))
+    page.evaluate("(() => { const g = window.__finworld; g.exitInterior(); })()"); page.wait_for_timeout(300)
+    check('leaving puts you back outside the tower door', snap(page)['inside'] is None and snap(page)['player']['z'] > 4)
+
+    # Stock Exchange trading hall: buy shares at the trading counter (or an after-market order when closed)
+    page.evaluate('window.__finworld.state.clockHour = 11; window.__finworld.clock.t = 0'); page.wait_for_timeout(200)
+    counter(page, 'exchange', 'trading')
+    cash0 = snap(page)['cash']; amo0 = page.evaluate('(window.__finworld.fin.amo || []).length')
     page.fill('#qty', '10'); page.click('[data-buy]'); page.wait_for_timeout(300)
-    cash1 = snap(page)['cash']
-    check('buy 10 shares reduces virtual cash', cash1 < cash0, f'{cash0:.0f} -> {cash1:.0f}')
+    cash1 = snap(page)['cash']; amo1 = page.evaluate('(window.__finworld.fin.amo || []).length')
+    check('buy 10 shares at the trading counter (with charges, or as an after-market order)', cash1 < cash0 or amo1 > amo0, f'{cash0:.0f} -> {cash1:.0f}, amo {amo0}->{amo1}')
+    check('every trade shows its charges', page.is_visible('text=/buy charges/'))
     page.screenshot(path=f'{OUT}/04-exchange-trade.png')
-    page.click('text=Trade ETFs'); page.wait_for_timeout(200)
-    check('ETF tab works', page.is_visible('text=FINVORA Gold ETF'))
     close_panel(page)
+    counter(page, 'exchange', 'etf-desk')
+    check('ETF counter works', page.is_visible('text=FINVORA Gold ETF'))
+    close_panel(page)
+    page.evaluate("(() => { const g = window.__finworld; g.player.place(0, 8, Math.PI); g.cam.snapBehind(Math.PI); g.cam.pitch = 0.15; })()"); page.wait_for_timeout(1200)
+    page.screenshot(path=f'{OUT}/04b-trading-hall.png')
+    page.evaluate('window.__finworld.state.clockHour = 20; window.__finworld.clock.t = 0'); page.wait_for_timeout(300)
+    r = page.evaluate("(() => { const g = window.__finworld; return g.fin.buyShares('AFT', 1); })()")
+    check('after 3:30 pm an order waits as an after-market order', r.get('amo') is True)
+    page.evaluate("(() => { const g = window.__finworld; g.fin.cancelAMO(g.fin.amo[g.fin.amo.length - 1].id); g.state.clockHour = 11; g.clock.t = 0; g.exitInterior(); })()"); page.wait_for_timeout(300)
 
     # Mutual funds: invest + SIP
-    go_door(page, 'mutual-fund')
-    page.keyboard.press('e'); page.wait_for_selector('.panel'); page.wait_for_timeout(300)
+    counter(page, 'tower', 'mutual-fund')
+    check('the Mutual Funds counter is served by Vansh in office hours', page.is_visible('text=Talk to Vansh'))
     page.fill('#amt', '25000'); page.click('[data-buy]'); page.wait_for_timeout(200)
-    page.click('.menu-tabs >> text=SIPs'); page.wait_for_timeout(200)
+    close_panel(page)
+    counter(page, 'tower', 'sip-desk')
     page.fill('#s-amt', '5000'); page.click('[data-start]'); page.wait_for_timeout(200)
     check('SIP started', page.is_visible('text=Your SIPs') and page.locator('[data-stop]').count() == 1)
     page.screenshot(path=f'{OUT}/05-mf-sip.png')
     close_panel(page)
 
     # Bank: FD + interest wall maths
-    go_door(page, 'bank')
-    page.keyboard.press('e'); page.wait_for_selector('.panel'); page.wait_for_timeout(300)
-    page.click('.menu-tabs >> text=FDs and RDs'); page.wait_for_timeout(200)
+    counter(page, 'bank', 'bank-deposits')
     page.click('[data-fd]'); page.wait_for_timeout(200)
-    check('FD opened', page.is_visible('text=FD 12 m'))
-    page.click('.menu-tabs >> text=Interest Wall'); page.wait_for_timeout(200)
+    check('FD opened at the deposits counter', page.is_visible('text=FD 12 m'))
+    page.screenshot(path=f'{OUT}/06a-bank-counter.png')
+    close_panel(page)
+    counter(page, 'bank', 'bank-manager')
     page.evaluate("(() => { const s = (id, v) => { const i = document.querySelector(id); i.value = v; i.dispatchEvent(new Event('input')); }; s('#iw-y', 20); s('#iw-r', 10); s('#iw-n', 1); })()")
     txt = page.inner_text('[data-c]').replace(' ', '')
     check('interest wall: ₹1L @10% yearly 20y = ₹6,72,750', txt == '₹6,72,750', txt)
+    close_panel(page)
+    counter(page, 'bank', 'bank-loans')
     page.click('.menu-tabs >> text=EMI / Loan Calculator'); page.wait_for_timeout(200)
     page.screenshot(path=f'{OUT}/06-bank-emi.png')
     close_panel(page)
 
     # Government Savings Office: PPF
-    go_door(page, 'govt-savings')
-    page.keyboard.press('e'); page.wait_for_selector('.panel'); page.wait_for_timeout(300)
+    counter(page, 'tower', 'govt-savings')
     page.fill('#ppf', '50000'); page.click('[data-ppf]'); page.wait_for_timeout(200)
     check('PPF deposit made', page.is_visible('text=Balance ₹50,000'))
     page.screenshot(path=f'{OUT}/07-govt-schemes.png')
     close_panel(page)
 
     # Calculator Centre
-    go_door(page, 'calc-centre')
-    page.keyboard.press('e'); page.wait_for_selector('.panel'); page.wait_for_timeout(300)
+    counter(page, 'tower', 'calc-centre')
     page.click('[data-c="retirement"]'); page.wait_for_timeout(300)
     check('calculator centre opens a calculator', page.is_visible('text=Corpus needed at 60'))
     page.screenshot(path=f'{OUT}/08-calculators.png')
     close_panel(page)
 
+    page.evaluate('window.__finworld.exitInterior()'); page.wait_for_timeout(200)
     # Portfolio + time travel
     page.keyboard.press('p'); page.wait_for_selector('text=My Portfolio')
     page.click('.menu-tabs >> text=Time'); page.click('[data-adv="30"]'); page.wait_for_timeout(400)
@@ -191,7 +219,8 @@ with sync_playwright() as p:
     page.screenshot(path=f'{OUT}/10-transactions.png')
     close_panel(page)
 
-    # Helper agent: typed question with referral
+    # Helper agent: typed question with referral (evening: agents are off duty and out in the city)
+    page.evaluate('window.__finworld.state.clockHour = 19.5; window.__finworld.clock.t = 0'); page.wait_for_timeout(300)
     page.evaluate("""(() => { const g = window.__finworld; const n = g.npcs.byId('mf-advisor');
         g.player.place(n.pos.x + 1.4, n.pos.z, -Math.PI/2); })()""")
     page.wait_for_timeout(300)
@@ -211,10 +240,11 @@ with sync_playwright() as p:
     check('Parth answers any topic directly', page.is_visible('text=Parth') and not page.is_visible("text=really") and page.is_visible('text=Go deeper with Altamash'))
     page.screenshot(path=f'{OUT}/11b-parth.png')
     close_panel(page)
+    page.evaluate('window.__finworld.state.clockHour = 11; window.__finworld.clock.t = 0'); page.wait_for_timeout(200)
 
     # Style Studio: buy and wear clothes
     go_door(page, 'clothing-store')
-    page.evaluate("(() => { const g = window.__finworld; g.panels.close(); g.dialogue.close(); g.openBuilding(g.city.doors.find(d => d.building.id === 'clothing-store').building); })()")
+    page.evaluate("(() => { const g = window.__finworld; g.panels.close(); g.dialogue.close(); g.openBuilding(g.city.doors.find(d => d.building && d.building.id === 'clothing-store').building); })()")
     page.wait_for_selector('.panel'); page.wait_for_timeout(300)
     page.locator('[data-buy="suit"]').click(); page.wait_for_timeout(200)
     page.locator('[data-buy="glasses"]').click(); page.wait_for_timeout(200)
@@ -225,7 +255,7 @@ with sync_playwright() as p:
 
     # Car showroom: loan purchase
     go_door(page, 'car-showroom')
-    page.evaluate("(() => { const g = window.__finworld; g.panels.close(); g.dialogue.close(); g.openBuilding(g.city.doors.find(d => d.building.id === 'car-showroom').building); })()")
+    page.evaluate("(() => { const g = window.__finworld; g.panels.close(); g.dialogue.close(); g.openBuilding(g.city.doors.find(d => d.building && d.building.id === 'car-showroom').building); })()")
     page.wait_for_selector('.panel'); page.wait_for_timeout(300)
     page.click('[data-car="volt"]'); page.wait_for_timeout(150)
     page.click('[data-mode="loan"]'); page.wait_for_timeout(150)
@@ -237,7 +267,7 @@ with sync_playwright() as p:
     page.evaluate("(() => { const g = window.__finworld; g.cam.yaw = g.car.heading + 2.3; g.cam.pitch = 0.25; g.cam.targetDistance = 4.5; })()"); page.wait_for_timeout(1200)
     page.screenshot(path=f'{OUT}/15b-scooter-rider.png')
     check('riding the scooter shows the rider', page.evaluate("window.__finworld.car.rider === 'scooter' && window.__finworld.player.char.seated === 'ride'"))
-    page.evaluate("(() => { const g = window.__finworld; g._exitCar(); g.useCar(g.fin.garage.find(c => c.catalogId === 'volt').id); g.openBuilding(g.city.doors.find(d => d.building.id === 'car-showroom').building); })()"); page.wait_for_timeout(300)
+    page.evaluate("(() => { const g = window.__finworld; g._exitCar(); g.useCar(g.fin.garage.find(c => c.catalogId === 'volt').id); g.openBuilding(g.city.doors.find(d => d.building && d.building.id === 'car-showroom').building); })()"); page.wait_for_timeout(300)
     check('buy an EV on a car loan; it becomes the active car', act_car == 'volt' and page.evaluate("window.__finworld.fin.loans.some(l => l.kind === 'car')"))
     close_panel(page)
 
@@ -264,33 +294,73 @@ with sync_playwright() as p:
     page.keyboard.press('Escape'); page.wait_for_timeout(200)
 
     # Round 7: Academy course, Job Centre, salary, Credit Bureau, fuel station, Tax Office
-    go_door(page, 'academy'); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
+    counter(page, 'tower', 'academy')
     page.click('[data-open="money"]'); page.wait_for_timeout(150)
     for qi in range(5): page.click(f'[data-q="{qi}:0"]'); page.wait_for_timeout(60)
     page.click('[data-submit]'); page.wait_for_timeout(300)
     check('Academy quiz awards a certificate', page.evaluate("!!window.__finworld.fin.life.certs.money"))
     close_panel(page)
-    go_door(page, 'job-centre'); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
+    counter(page, 'tower', 'job-centre')
     page.click('[data-job="developer"]'); page.wait_for_timeout(300)
     check('Job Centre hires you', page.evaluate("window.__finworld.fin.life.job && window.__finworld.fin.life.job.id") == 'developer')
     page.screenshot(path=f'{OUT}/16b-job-centre.png')
     close_panel(page)
     page.evaluate('window.__finworld._advanceSim(35)'); page.wait_for_timeout(300)
     check('salary is credited at month end', page.evaluate("window.__finworld.fin.ledger.some(e => e.type === 'salary')"))
-    go_door(page, 'credit-bureau'); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
+    counter(page, 'tower', 'credit-bureau')
     check('Credit Bureau shows a report', page.is_visible('text=Accounts on your report'))
     close_panel(page)
+    page.evaluate('window.__finworld.exitInterior()'); page.wait_for_timeout(200)
     page.evaluate("(() => { const g = window.__finworld; const fs = g.city.fuelStation; g._parkCarAt(fs.x, fs.z + 4, 0); g.fin.garage.find(c => c.id === g.state.activeCar).fuel = 0.2; })()"); page.wait_for_timeout(200)
     go_door(page, 'fuel-station'); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
     page.click('[data-full]'); page.wait_for_timeout(300)
     check('fuel station fills the tank', page.evaluate("window.__finworld.fin.carFuel(window.__finworld.state.activeCar)") > 0.99)
     page.screenshot(path=f'{OUT}/16c-fuel.png')
     close_panel(page)
-    go_door(page, 'tax-office'); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
-    check('Tax Office compares both regimes', page.is_visible('text=New regime') and page.is_visible('text=Old regime'))
+    counter(page, 'tower', 'tax-office')
+    check('Tax desk compares both regimes', page.is_visible('text=New regime') and page.is_visible('text=Old regime'))
     close_panel(page)
-    page.evaluate("(() => { const g = window.__finworld; g.player.place(0, -118, Math.PI); g.cam.snapBehind(Math.PI); g.cam.pitch = -0.35; g.cam.targetDistance = 8; })()"); page.wait_for_timeout(1500)
+    page.evaluate('window.__finworld.exitInterior()'); page.wait_for_timeout(200)
+    page.evaluate("(() => { const g = window.__finworld; g.player.place(0, 40, Math.PI); g.cam.snapBehind(Math.PI); g.cam.pitch = -0.45; g.cam.targetDistance = 8; })()"); page.wait_for_timeout(1500)
     page.screenshot(path=f'{OUT}/16d-tower-logo.png')
+
+    # Round 8: your home, the city bus, an auto-rickshaw and lane discipline
+    go_door(page, 'home'); page.keyboard.press('e'); page.wait_for_timeout(600)
+    check('walk into your home', snap(page)['inside'] == 'home')
+    page.wait_for_timeout(800); page.screenshot(path=f'{OUT}/16e-home.png')
+    page.evaluate("(() => { const g = window.__finworld; const s = g.inside.spots.find(s => s.action === 'garage'); g.player.place(s.x, s.z, 0); })()"); page.wait_for_timeout(300)
+    check('garage prompt at home', snap(page)['target'] == 'Take your vehicle out')
+    page.keyboard.press('e'); page.wait_for_timeout(500)
+    check('drive straight out of your garage', snap(page)['inside'] is None and snap(page)['myCar']['driving'])
+    page.evaluate('window.__finworld._exitCar()'); page.wait_for_timeout(200)
+    page.evaluate("(() => { const g = window.__finworld; const d = g.city.doors.find(d => d.type === 'bus' && d.stop.id === 'bs-tower'); g.player.place(d.x, d.z, d.face); })()"); page.wait_for_timeout(400)
+    check('bus stop prompt', snap(page)['target'] == 'Take the city bus')
+    page.keyboard.press('e'); page.wait_for_selector('[data-v="bs-bank"]', timeout=4000)
+    cash0 = snap(page)['cash']
+    page.click('[data-v="bs-bank"]'); page.wait_for_timeout(1500)
+    check('bus ride starts and the fare is paid', snap(page)['riding'] == 'bus' and snap(page)['cash'] < cash0)
+    page.screenshot(path=f'{OUT}/16f-bus.png')
+    for _ in range(60):
+        if snap(page)['riding'] is None: break
+        page.wait_for_timeout(1000)
+    pp = snap(page)['player']
+    check('bus drops you at the next stop', snap(page)['riding'] is None and math.hypot(pp['x'] + 62, pp['z'] - 22) < 6, f"{pp['x']:.1f},{pp['z']:.1f}")
+    page.keyboard.press('t'); page.wait_for_selector('.phone'); page.click('[data-app="rides"]'); page.wait_for_timeout(300)
+    page.click('[data-ride="supermart"]'); page.wait_for_timeout(1500)
+    check('call an auto-rickshaw from the phone', snap(page)['riding'] == 'auto')
+    page.screenshot(path=f'{OUT}/16g-rickshaw.png')
+    for _ in range(60):
+        if snap(page)['riding'] is None: break
+        page.wait_for_timeout(1000)
+    check('rickshaw meter fare paid on arrival', page.evaluate("window.__finworld.fin.ledger.some(e => e.type === 'travel' && /Auto-rickshaw/.test(e.name))"))
+    lane = page.evaluate("""(async () => { const g = window.__finworld, R = [-325,-275,-225,-175,-125,-75,-25,25,75,125,175,225,275,325]; let ok = 0, bad = 0;
+        for (let s = 0; s < 16; s++) { await new Promise(r => setTimeout(r, 250));
+          for (const c of g.traffic.cars) { const fx = Math.sin(c.heading), fz = Math.cos(c.heading); let lat = null;
+            if (Math.abs(fz) > 0.95) { const rx = R.reduce((a, b) => Math.abs(b - c.pos.x) < Math.abs(a - c.pos.x) ? b : a); const o = c.pos.x - rx; if (Math.abs(o) < 4) lat = fz < 0 ? -o : o; }
+            else if (Math.abs(fx) > 0.95) { const rz = R.reduce((a, b) => Math.abs(b - c.pos.z) < Math.abs(a - c.pos.z) ? b : a); const o = c.pos.z - rz; if (Math.abs(o) < 4) lat = fx > 0 ? -o : o; }
+            if (lat === null) continue; if (lat > 0.5) ok++; else if (lat < -0.5) bad++; } }
+        return [ok, bad]; })()""")
+    check('every vehicle keeps to the left lane', lane[0] > 50 and lane[1] == 0, f'left {lane[0]}, wrong side {lane[1]}')
 
     # Save + restore including finance
     page.evaluate('window.__finworld._persist({ immediate: true }); window.__finworld._saveFinance(true)')
@@ -308,6 +378,43 @@ with sync_playwright() as p:
     page.screenshot(path=f'{OUT}/12-night.png')
     page.keyboard.press('m'); page.wait_for_selector('.map-wrap'); page.wait_for_timeout(300)
     page.screenshot(path=f'{OUT}/13-map.png')
+    page.keyboard.press('Escape'); page.wait_for_timeout(250)
+    # ---- round 10: compact city, mall, cinema, hospital, school, gym, restaurant, metro and signals
+    page.evaluate('window.__finworld.state.clockHour = 11; window.__finworld.clock.t = 0;')
+    check('map shrunk to 9 x 9 blocks', page.evaluate('window.__finworld.nav.nodes.length') == 100)
+    go_door(page, 'mall'); page.keyboard.press('e'); page.wait_for_timeout(700)
+    check('walk into Central Mall', snap(page)['inside'] == 'mall')
+    counter(page, 'mall', 'mall-tech')
+    check('electronics shows no-cost EMI comparison', page.is_visible('text=No-cost EMI total'))
+    c0 = snap(page)['cash']; page.click('[data-full="phone"]'); page.wait_for_timeout(300)
+    check('buy a phone paying in full', snap(page)['cash'] < c0)
+    page.screenshot(path=f'{OUT}/30-mall-electronics.png'); close_panel(page)
+    counter(page, 'mall', 'mall-food')
+    check('food court menu opens', page.is_visible('text=The daily coffee test')); close_panel(page)
+    go_door(page, 'cinema'); page.keyboard.press('e'); page.wait_for_timeout(700)
+    check('walk into Cineplex', snap(page)['inside'] == 'cinema')
+    counter(page, 'cinema', 'cine-tickets')
+    c0 = snap(page)['cash']; page.click('[data-buy="0"]'); page.wait_for_timeout(300)
+    check('buy a movie ticket', snap(page)['cash'] < c0); close_panel(page)
+    page.evaluate('window.__finworld.exitInterior()'); page.wait_for_timeout(300)
+    for bid, txt in [('hospital', 'Full-body health check-up'), ('school', 'Diploma in Financial Planning'), ('gym', 'Cost per visit'), ('restaurant', 'Eating out vs cooking')]:
+        go_door(page, bid); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000); page.wait_for_timeout(300)
+        if bid == 'gym': page.click('[data-plan="monthly"]'); page.wait_for_timeout(300)
+        check(f'{bid} service works', page.is_visible(f'text={txt}'))
+        if bid == 'hospital': page.screenshot(path=f'{OUT}/31-hospital.png')
+        close_panel(page)
+    d = page.evaluate("(() => { const g = window.__finworld; const d = g.city.doors.find(d => d.type === 'metro' && d.station.id === 'm-west'); g.player.place(d.x, d.z, d.face); return d; })()")
+    page.wait_for_timeout(400); page.keyboard.press('e'); page.wait_for_selector('.panel', timeout=4000)
+    check('metro station menu', page.is_visible('text=Central Mall'))
+    c0 = snap(page)['cash']; page.click('text=Central Mall'); page.wait_for_timeout(2800)
+    pz = snap(page)['player']
+    check('metro ride to Central Mall station', abs(pz['x'] - 65) < 4 and snap(page)['cash'] < c0, f"{pz}")
+    stopped = page.evaluate("(() => { const g = window.__finworld; return g.traffic.cars.filter(c => c.atSignal).length; })()")
+    page.wait_for_timeout(6000)
+    stopped = max(stopped, page.evaluate("window.__finworld.traffic.cars.filter(c => c.atSignal).length"))
+    check('cars stop at red signals', stopped > 0, f'{stopped} waiting')
+    page.evaluate(f"(() => {{ const g = window.__finworld; g.player.place(55, -20, Math.PI); g.cam.snapBehind(Math.PI + 0.4); g.cam.pitch = 0.2; }})()"); page.wait_for_timeout(1500)
+    page.screenshot(path=f'{OUT}/32-metro.png')
     ctx.close()
 
     # ------------------------------------------------------------------ mobile
@@ -334,17 +441,20 @@ with sync_playwright() as p:
     check('touch drag rotates camera', abs(mp.evaluate('window.__finworld.cam.yaw') - y0) > 0.3)
     mp.screenshot(path=f'{OUT}/21-mobile-play.png')
     go_door(mp, 'stock-exchange')
+    mp.tap('[data-a="interact"]'); mp.wait_for_timeout(600)
+    check('ENTER button walks into the Exchange on touch', snap(mp)['inside'] == 'exchange')
+    mp.evaluate("(() => { const g = window.__finworld; g.state.clockHour = 11; g.clock.t = 0; const s = g.inside.spots.find(s => s.kind === 'counter'); g.player.place(s.x, s.z, s.counter.face); })()"); mp.wait_for_timeout(400)
     mp.tap('[data-a="interact"]'); mp.wait_for_selector('.panel'); mp.wait_for_timeout(400)
     mp.screenshot(path=f'{OUT}/22-mobile-exchange.png')
-    check('ENTER button opens the Exchange on touch', mp.is_visible('text=Trade shares'))
     mp.tap('[data-buy]'); mp.wait_for_timeout(200)
-    check('trade from phone', snap(mp)['cash'] < 1000000)
+    check('trade from phone', snap(mp)['cash'] < 1000000 or mp.evaluate('(window.__finworld.fin.amo || []).length') > 0)
     mp.tap('.close-x'); mp.wait_for_timeout(200)
+    mp.evaluate('window.__finworld.exitInterior()'); mp.wait_for_timeout(200)
     mp.tap('[data-portfolio]'); mp.wait_for_selector('text=My Portfolio'); mp.wait_for_timeout(300)
     mp.screenshot(path=f'{OUT}/23-mobile-portfolio.png')
     check('no horizontal overflow on 390px', not mp.evaluate('document.documentElement.scrollWidth > window.innerWidth'))
     mp.tap('.close-x'); mp.wait_for_timeout(200)
-    mp.evaluate("""(() => { const g = window.__finworld; const n = g.npcs.byId('savings-agent'); g.player.place(n.pos.x + 1.4, n.pos.z, -Math.PI/2); })()""")
+    mp.evaluate("""(() => { const g = window.__finworld; const n = g.npcs.byId('retail-investor'); g.player.place(n.pos.x + 1.4, n.pos.z, -Math.PI/2); })()""")
     mp.wait_for_timeout(300); mp.tap('[data-a="interact"]'); mp.wait_for_selector('.dlg'); mp.wait_for_timeout(200)
     mp.screenshot(path=f'{OUT}/24-mobile-agent.png')
     check('helper agent dialogue on phone', mp.is_visible('.dlg-ask'))

@@ -37,22 +37,26 @@ export function windowTextures() {
   };
 }
 
-export function signTexture(text, accentHex, sub = 'FINVORA') {
+/** Name sign. `aspect` = plane width / height, so letters are never stretched on wide or narrow signs. */
+export function signTexture(text, accentHex, sub = 'FINVORA', aspect = 4) {
   const accent = '#' + accentHex.toString(16).padStart(6, '0');
-  const t = canvasTex(1024, 256, (g, w, h) => {
+  let W = Math.round(256 * aspect), H = 256;
+  if (W > 2048) { W = 2048; H = Math.max(96, Math.round(2048 / aspect)); }
+  if (W < 256) { W = 256; H = Math.round(256 / aspect); }
+  const k = H / 256; // scale everything with the sign's height
+  const t = canvasTex(W, H, (g, w, h) => {
     g.fillStyle = '#0d0f12'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = accent; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12);
-    g.fillStyle = accent; g.fillRect(6, h - 64, w - 12, 58);
-    let size = 120;
-    const font = (sz) => `800 ${sz}px system-ui, "Segoe UI", Arial, sans-serif`;
-    g.font = font(size);
-    while (g.measureText(text).width > w - 80 && size > 40) { size -= 4; g.font = font(size); }
+    g.strokeStyle = accent; g.lineWidth = Math.max(3, 6 * k); g.strokeRect(6 * k, 6 * k, w - 12 * k, h - 12 * k);
+    const band = Math.round(58 * k);
+    g.fillStyle = accent; g.fillRect(6 * k, h - band - 6 * k, w - 12 * k, band);
+    const fit = (str, weight, start, maxW) => { let size = start; g.font = `${weight} ${size}px system-ui, "Segoe UI", Arial, sans-serif`; while (g.measureText(str).width > maxW && size > 10) { size -= 2; g.font = `${weight} ${size}px system-ui, "Segoe UI", Arial, sans-serif`; } return size; };
     g.textAlign = 'center'; g.textBaseline = 'middle';
+    fit(text, 800, Math.round(118 * k), w - 60 * k);
     g.fillStyle = '#ffffff';
-    g.fillText(text, w / 2, (h - 64) / 2 + 6);
-    g.font = '800 34px system-ui, Arial, sans-serif';
+    g.fillText(text, w / 2, (h - band) / 2 + 4 * k);
+    fit(sub, 800, Math.round(34 * k), w - 40 * k);
     g.fillStyle = '#0d0f12';
-    g.fillText(sub, w / 2, h - 35);
+    g.fillText(sub, w / 2, h - band / 2 - 6 * k);
   });
   t.anisotropy = 8;
   return t;

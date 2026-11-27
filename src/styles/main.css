@@ -370,3 +370,13 @@ button { cursor: pointer; }
 .speedo .fuel { display: block; font-size: .7rem; color: var(--fw-muted); margin-top: .1rem; }
 .speedo .fuel.low { color: #ff6b5e; font-weight: 700; }
 @media (max-width: 640px) { .quiz-opts { grid-template-columns: 1fr; } }
+
+.inside-chip { position: absolute; top: 74px; right: 14px; padding: .45rem .8rem; border-radius: 10px; font-size: .82rem; color: var(--fw-text, #ecebe6); }
+@media (max-width: 640px) { .inside-chip { top: 64px; right: 8px; font-size: .74rem; } }
+
+/* FinVora Metro ride transition */
+.metro-fade { position: fixed; inset: 0; z-index: 90; background: #0b1424; display: grid; place-items: center; opacity: 0; pointer-events: none; transition: opacity .6s ease; }
+.metro-fade.on { opacity: 1; pointer-events: auto; }
+.metro-fade-in { display: grid; justify-items: center; gap: .8rem; color: #e8eefc; font: 600 1rem system-ui, sans-serif; }
+.metro-roundel { width: 72px; height: 72px; border-radius: 50%; background: #2e6fd6; border: 5px solid #fff; display: grid; place-items: center; font: 900 2.4rem system-ui; color: #fff; }
+.stack { display: flex; flex-direction: column; gap: .6rem; }

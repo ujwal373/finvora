@@ -1,4 +1,4 @@
-import { BUILDINGS, DISTRICTS, doorPoint } from '../data/buildings.js';
+import { BUILDINGS, DISTRICTS, MOVED_TO_TOWER, doorPoint } from '../data/buildings.js';
 
 // Named spots NPCs walk between. `side` says which way to walk to reach a boulevard.
 export function buildPlaces() {
@@ -9,14 +9,16 @@ export function buildPlaces() {
     const p = doorPoint(b, 5.5);
     add(b.id, p.x, p.z, b.door, b.name, 2.2, 'work');
   }
-  // Compound Square (central park). Spurs follow the park's cross paths.
-  add('park-n', 0, -9, '-z', 'Compound Square', 1.2, 'leisure');
-  // The heart of the city: FinVora's leaders stand together beside the fountain.
-  add('plaza-a', -1.1, -6.3, '-z', 'Fountain', 0.25, 'post');
-  add('plaza-b', 1.1, -6.3, '-z', 'Fountain', 0.25, 'post');
-  add('park-s', 0, 9, '+z', 'Compound Square', 1.2, 'leisure');
-  add('park-e', 9, 0, '+x', 'Compound Square', 1.2, 'leisure');
-  add('park-w', -9, 0, '-x', 'Compound Square', 1.2, 'leisure');
+  // AccoFinTra Plaza in front of the tower. Parth and Aanya greet visitors either side of the walkway.
+  add('plaza-a', -4.6, 10.5, '+z', 'AccoFinTra Plaza', 0.25, 'post');
+  add('plaza-b', 4.6, 10.5, '+z', 'AccoFinTra Plaza', 0.25, 'post');
+  add('park-n', -15, 13, '+z', 'AccoFinTra Plaza', 1.2, 'leisure');
+  add('park-s', 0, 60, '+z', 'Central Park', 1.4, 'leisure');
+  add('park-e', 15, 13, '+z', 'AccoFinTra Plaza', 1.2, 'leisure');
+  add('park-w', -15, 6, '-x', 'AccoFinTra Plaza', 1.2, 'leisure');
+  // Old service building ids now point to spots around the city (their services moved into the tower).
+  const spots = [[-15, 13, '+z'], [15, 13, '+z'], [0, 60, '+z'], [-16, 33, '-z'], [16, 33, '-z']];
+  MOVED_TO_TOWER.forEach((id, i) => { const [x, z, side] = spots[i % spots.length]; add(id, x + (i % 3) - 1, z, side, 'AccoFinTra Plaza', 1.6, 'leisure'); });
   DISTRICTS.residential.forEach(([bx, bz], i) => add(`home-${i}`, bx, bz + 16.5, '+z', 'Homes', 1.4, 'home'));
   DISTRICTS.parks.forEach(([bx, bz], i) => add(`garden-${i}`, bx, bz + 8, '+z', 'Garden', 1.6, 'leisure'));
   DISTRICTS.business.forEach(([bx, bz], i) => add(`office-${i}`, bx, bz - 17.5, '-z', 'Business district', 1.6, 'work'));

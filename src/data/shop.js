@@ -1,7 +1,9 @@
 // FinVora showrooms. Brands and prices are fictional and illustrative (₹, ex-showroom style).
 // Running costs are rough monthly fuel/charging estimates for an average city driver.
 
+export const AFT_BLUE = 0x1800ad; // AccoFinTra brand blue, sampled from the logo
 export const PAINTS = [
+  { id: 'aft', name: 'AccoFinTra Blue', hex: AFT_BLUE },
   { id: 'gold', name: 'AccoFinTra Gold', hex: 0xd4a846 },
   { id: 'red', name: 'Ruby Red', hex: 0xc0392b },
   { id: 'blue', name: 'Ocean Blue', hex: 0x2e86de },
@@ -60,6 +62,10 @@ export const CLOTHES = [
 export const SKIN_TONES = [0xf1c9a5, 0xe0b48f, 0xc08a64, 0xa77450, 0x8d5a3b, 0x6b4128];
 export const HAIR_COLORS = [0x15100c, 0x3b2a1e, 0x6b4a2b, 0xa07040, 0x9a9590, 0xd8c09a];
 export const HAIR_STYLES = ['short', 'long', 'bob', 'bun'];
+export const BODY_FORMS = [['m', 'Masculine'], ['f', 'Feminine']];
+export const BUILDS = [['slim', 'Slim'], ['average', 'Average'], ['broad', 'Broad']];
+export const HEIGHTS = [[0.95, 'Shorter'], [1, 'Average'], [1.05, 'Taller']];
+export const FACIAL = [['none', 'Clean'], ['stubble', 'Stubble'], ['moustache', 'Moustache'], ['beard', 'Beard']];
 
 export const carById = Object.fromEntries(CARS.map((c) => [c.id, c]));
 export const clothById = Object.fromEntries(CLOTHES.map((c) => [c.id, c]));

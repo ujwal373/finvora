@@ -168,7 +168,7 @@ function fnoDesk(ctx) {
     const strike = strikes[sel.k], quote = f.fnoQuote(sel.u, sel.type, strike, exp), units = spec.lot * sel.lots;
     const need = sel.type === 'fut' ? quote * units * 0.15 : quote * units;
     node.innerHTML = `<div class="fw-msg err" style="margin-top:0"><b>High risk, learning only.</b> A SEBI study found that about 9 in 10 individual F&O traders lost money in FY22 to FY24. Futures can lose more than your margin. FinVora lets you buy options and trade futures with paper money; selling options is blocked.</div>
-      ${l.certs.derivatives ? '' : '<div class="fw-msg info">Pass the Derivatives Risk course at the Financial Academy to unlock trading.</div>'}
+      ${l.certs.derivatives ? '' : '<div class="fw-msg info">Pass the Derivatives Risk course at the Academy counter in AccoFinTra Tower to unlock trading.</div>'}
       <div class="seg" style="grid-template-columns:repeat(${FNO.length},1fr)">${FNO.map((x) => `<button data-u="${x.u}" class="${sel.u === x.u ? 'on' : ''}">${x.u}</button>`).join('')}</div>
       <div class="det-head" style="margin-top:.5rem"><div><div class="det-name">${esc(spec.name)}</div><div class="small muted">Lot size ${spec.lot} · monthly expiry ${exp} (last Tuesday)</div></div><div class="r"><div class="mono big">${fmtNum(spot)}</div><div class="small muted">spot</div></div></div>
       <div class="seg" style="margin-top:.3rem">${['fut', 'call', 'put'].map((t) => `<button data-ty="${t}" class="${sel.type === t ? 'on' : ''}">${{ fut: 'Futures', call: 'Call option', put: 'Put option' }[t]}</button>`).join('')}</div>
@@ -374,7 +374,7 @@ function coursesService(ctx) {
       });
       return;
     }
-    node.innerHTML = `<div class="fw-msg info" style="margin-top:0">Short courses with a 5-question quiz. Certificates pay a one-time reward and unlock better jobs at the Job Centre and derivatives trading.</div>
+    node.innerHTML = `<div class="fw-msg info" style="margin-top:0">Short courses with a 5-question quiz. Certificates pay a one-time reward and unlock better jobs at the Jobs counter in AccoFinTra Tower and derivatives trading.</div>
       <div class="shop-grid">${COURSES.map((c) => `<div class="card-in shop-item"><b>${esc(c.title)}</b><div class="small muted">Reward ₹${c.reward.toLocaleString('en-IN')}</div>${l.certs[c.id] ? chip(`Certified ${l.certs[c.id]}`, 'green') : ''}<div class="small">${JOBS.filter((j) => j.needs.includes(c.id)).map((j) => `Unlocks ${esc(j.title)}`).join(' · ') || (c.id === 'derivatives' ? 'Unlocks F&O trading' : '')}</div><button class="fw-btn sm block ${l.certs[c.id] ? '' : 'green'}" data-open="${c.id}">${l.certs[c.id] ? 'Retake' : 'Start'}</button></div>`).join('')}</div>`;
     $$(node, '[data-open]').forEach((b) => b.addEventListener('click', () => { open = b.dataset.open; for (const k in ans) delete ans[k]; render(); }));
   });

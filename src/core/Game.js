@@ -25,6 +25,12 @@ import { SaveService } from '../services/SaveService.js';
 import { openPhone } from '../ui/Phone.js';
 import { carById, clothById } from '../data/shop.js';
 import { DEFAULT_LOOK } from '../entities/Player.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { Interior } from '../world/Interiors.js';
+import { AGENT_COUNTER, onDuty, INTERIORS } from '../data/interiors.js';
+import { Ride, lanePath, pathLength, realKm, FARES } from '../world/Rides.js';
+import { BUS_STOPS, BUILDINGS, METRO_STATIONS, metroFare } from '../data/buildings.js';
+import { vehicleMesh } from '../world/Traffic.js';
 
 export const STATE_VERSION = 1;
 
@@ -47,7 +53,7 @@ export function defaultState(touch) {
     talkedTo: [],
     tutorial: { done: false, step: 0 },
     welcomed: false,
-    avatar: { skin: DEFAULT_LOOK.skin, hair: DEFAULT_LOOK.hair, hairStyle: 'short', equipped: {} },
+    avatar: { skin: DEFAULT_LOOK.skin, hair: DEFAULT_LOOK.hair, hairStyle: 'short', body: 'm', build: 'average', height: 1, facial: 'none', equipped: {} },
     activeCar: 'CAR0',
     messages: [],
   };
@@ -130,7 +136,9 @@ export class Game {
       throw new Error('WebGL is not available on this device or browser. FinVora needs WebGL to draw the 3D city.');
     }
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.shadowMap.type = p.antialias ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.maxPR = Math.min(window.devicePixelRatio || 1, p.maxPixelRatio);
     this.pixelRatio = this.maxPR * p.pixelScale;
     this.renderer.setPixelRatio(this.pixelRatio);
@@ -147,6 +155,8 @@ export class Game {
     this.sun.shadow.bias = -0.0008; this.sun.shadow.normalBias = 0.04;
     this.scene.add(this.hemi, this.sun, this.sun.target);
     this.scene.fog = new THREE.Fog(0x9fc4e0, 60, p.fogFar);
+    // Image-based lighting: gives glass, car paint, metal and polished floors real reflections.
+    try { const pm = new THREE.PMREMGenerator(this.renderer); this.envMap = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); this.scene.environment = this.envMap; this.scene.environmentIntensity = 0.55; } catch { this.envMap = null; }
     this.scene.background = new THREE.Color(0x9fc4e0);
   }
 
@@ -171,6 +181,7 @@ export class Game {
     this.npcs = new NPCManager(this.scene, this.nav, this.places, { castShadow: this.preset.shadows, citizens: this.preset.citizens, nameTagRange: this.preset.nameTagRange });
 
     this.gps = new GPS(this.scene, this.nav);
+    this.interiors = {}; this.inside = null; this.ride = null;
     // Waypoint beacon
     this.beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 60, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xf0c868, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide, fog: false }));
     this.beacon.visible = false;
@@ -294,11 +305,17 @@ export class Game {
   // ---------------------------------------------------------------- interaction
   _findTarget() {
     const p = this.player.pos, f = this.player.forward();
+    if (this.ride) return null;
+    if (this.inside) {
+      const s = this.inside.nearest(p);
+      return s ? { kind: 'spot', spot: s, label: s.label, sub: s.sub } : null;
+    }
     if (this.driving) return { kind: 'exit-car', label: 'Get out of the car', sub: this.car.kmh > 7 ? 'slow down first' : '' };
     let best = null, bestScore = Infinity;
     const dc = Math.hypot(this.car.pos.x - p.x, this.car.pos.z - p.z);
     if (dc < 3.4) { best = { kind: 'car', label: 'Drive your car', sub: 'FinVora coupe' }; bestScore = dc - 0.5; }
     for (const n of this.npcs.npcs) {
+      if (n.onDuty) continue; // working at their counter inside
       const dx = n.pos.x - p.x, dz = n.pos.z - p.z, d = Math.hypot(dx, dz);
       if (d > INTERACT.npcRange) continue;
       const facing = (dx * f.x + dz * f.z) / (d || 1);
@@ -309,7 +326,9 @@ export class Game {
       const dist = Math.hypot(d.x - p.x, d.z - p.z);
       if (dist > INTERACT.doorRange) continue;
       const score = dist < 1.6 ? dist - 1.5 : dist + 0.3; // standing on the door ring always means "enter"
-      if (score < bestScore) { bestScore = score; best = { kind: 'door', door: d, label: `Enter ${d.building.name}`, sub: d.building.interactive ? 'Open now' : 'Opening soon' }; }
+      if (d.type === 'bus') { if (score < bestScore) { bestScore = score; best = { kind: 'bus', door: d, label: 'Take the city bus', sub: `${d.stop.name} stop · ₹10 to ₹30` }; } continue; }
+      if (d.type === 'metro') { if (score < bestScore) { bestScore = score; best = { kind: 'metro', door: d, label: 'Take the FinVora Metro', sub: `${d.station.name} station · ₹20 to ₹40` }; } continue; }
+      if (score < bestScore) { bestScore = score; best = { kind: 'door', door: d, label: d.building.interior === 'home' ? 'Go inside your home' : `Enter ${d.building.name}`, sub: d.building.interior ? 'Walk in' : 'Open now' }; }
     }
     return best;
   }
@@ -318,6 +337,9 @@ export class Game {
     this._tutorialEvent('interact');
     if (t.kind === 'car') return this._enterCar();
     if (t.kind === 'exit-car') return this._exitCar();
+    if (t.kind === 'spot') return this._spot(t.spot);
+    if (t.kind === 'bus') return this.openBusMenu(t.door.stop);
+    if (t.kind === 'metro') return this.openMetroMenu(t.door.station);
     if (t.kind === 'npc') {
       const n = t.npc;
       if (!n.keyNpc) { this.hud.toast(`Resident: “${n.def.line}”`, { ms: 4500 }); return; }
@@ -330,7 +352,7 @@ export class Game {
       const b = t.door.building;
       if (!this.state.visited.includes(b.id)) { this.state.visited.push(b.id); this._persist(); }
       if (this.waypoint?.id === b.id) this.waypoint = null;
-      this.openBuilding(b);
+      if (b.interior) this.enterInterior(b.interior); else this.openBuilding(b);
     }
   }
 
@@ -360,11 +382,163 @@ export class Game {
     this.panels.building(b, {
       svcCtx: this._svcCtx(),
       startTab,
-      helpers: KEY_NPCS.filter((h) => h.office === b.id),
-      onFindHelper: (id) => this._findNpc(id),
+      helpers: b.counter ? (b.staffId ? [npcById[b.staffId]] : []) : KEY_NPCS.filter((h) => h.office === b.id),
+      onFindHelper: (id) => (b.counter ? this.talkTo(id) : this._findNpc(id)),
       onTalkDesk: (bb) => { const tree = DIALOGUES[bb.desk]; this._openDialogue(tree, tree.speaker, null); },
       onClose: () => { if (!this.dialogue.open) this._setOverlay(false); },
     });
+  }
+
+  // ---------------------------------------------------------------- interiors
+  enterInterior(key) {
+    if (this.driving || this.ride) return;
+    const it = (this.interiors[key] ||= new Interior(key, { environment: this.envMap, market: this.market }));
+    this.inside = it;
+    if (key === 'home') {
+      const c = this.fin.garage.find((x) => x.id === this.state.activeCar) || this.fin.garage[0];
+      it.setGarageVehicle(vehicleMesh(carById[c.catalogId].model, c.color).mesh);
+    }
+    this.player.scene = it.scene; it.scene.add(this.player.object);
+    this.player.collision = it.collision; this.cam.collision = it.collision;
+    this._camDist = this.cam.targetDistance;
+    this.player.place(it.spawn.x, it.spawn.z, it.spawn.yaw);
+    this.cam.targetDistance = 4.4; this.cam.pitch = 0.2; this.cam.snapBehind(it.spawn.yaw);
+    this.hud.setInside(it.def.title);
+    this.hud.setSpeed(null);
+    if (key === 'home') this.hud.toast('Welcome home. Laptop, wardrobe, bed, TV and your garage are all here.', { gold: true, ms: 5000 });
+    else this.hud.toast(`${it.def.title}. Walk to a counter and press ${this.input.touch ? 'TALK' : 'E'}. Agents serve 9 am to 6 pm; the desk team covers other hours.`, { gold: true, ms: 6000 });
+    this._tutorialEvent('enter');
+  }
+
+  exitInterior() {
+    const it = this.inside; if (!it) return;
+    this.inside = null;
+    this.player.scene = this.scene; this.scene.add(this.player.object);
+    this.player.collision = this.collision; this.cam.collision = this.collision;
+    const d = doorPoint(it.building, 2.4);
+    this.player.place(d.x, d.z, d.face + Math.PI);
+    this.cam.targetDistance = this._camDist || 7.5; this.cam.snapBehind(d.face + Math.PI);
+    this.hud.setInside(null);
+    this._persist();
+  }
+
+  _spot(s) {
+    const it = this.inside;
+    if (s.kind === 'exit') return this.exitInterior();
+    if (s.kind === 'counter') {
+      const c = s.counter, token = it.issueToken(c), who = it.serving(c, this.hour);
+      const b = it.counterPanel(c, this.hour); b.staffId = who ? who.id : null;
+      this.player.faceTowards(c.x - Math.sin(c.face) * 2, c.z - Math.cos(c.face) * 2);
+      this.hud.toast(`Token ${token}: please go to counter ${c.number}. ${who ? `${who.name} will help you.` : 'The desk team will help you.'}`, { ms: 3500 });
+      return this.openBuilding(b);
+    }
+    if (s.kind === 'reception') {
+      const lines = it.def.counters.map((c, i) => `${i + 1}. ${c.name}`).join(' · ');
+      return this.hud.toast(`Reception: ${lines}`, { ms: 9000 });
+    }
+    switch (s.action) {
+      case 'laptop': return this.openPortfolio();
+      case 'wardrobe': return this.openPhone('avatar');
+      case 'tv': return this.openBuilding({ id: 'tv', name: 'FinVora Business · Live', blurb: 'Simulated market news and prices on your TV.', services: ['market-board', 'results'] });
+      case 'fridge': return this.hud.toast('A cold mango lassi. Cooking at home is one of the easiest ways to save money.');
+      case 'bed': {
+        this.state.clockHour = 7; this.clock.t = 0; this._advanceSim(1);
+        return this.hud.toast(`Good morning! It is 7:00 am on ${this.fin.date}.`, { gold: true });
+      }
+      case 'garage': {
+        const gpos = this.city.homeGarage; this.exitInterior();
+        this._parkCarAt(gpos.x, gpos.z, gpos.yaw); this._enterCar(); return undefined;
+      }
+      case 'bell': return this.hud.toast(this.fin.marketOpen() ? 'Ding! The market is open (9:15 am to 3:30 pm).' : 'Ding! The market is closed now. It opens at 9:15 am on weekdays.', { gold: true });
+      case 'board': return this.openBuilding({ id: 'board', name: 'FinVora Stock Exchange · Market board', blurb: 'Live simulated prices for every listed company and ETF.', services: ['market-board'] });
+      default: return undefined;
+    }
+  }
+
+  talkTo(id) {
+    const def = npcById[id]; if (!def) return;
+    const tree = def.dialogue ? DIALOGUES[def.dialogue] : buildAgentTree(def.id);
+    this._openDialogue(tree, { name: def.name, role: def.hasName ? def.role : 'FinVora helper', color: def.look.shirt }, null, def.id);
+  }
+
+  // ---------------------------------------------------------------- bus and rickshaw rides
+  openBusMenu(stop) {
+    const i0 = BUS_STOPS.findIndex((s) => s.id === stop.id), n = BUS_STOPS.length;
+    const options = BUS_STOPS.map((s, i) => ({ s, stops: (i - i0 + n) % n })).filter((o) => o.stops > 0)
+      .map((o) => ({ value: o.s.id, label: o.s.name, sub: `${o.stops} stop${o.stops > 1 ? 's' : ''} · fare ₹${FARES.bus(o.stops)}` }));
+    this._setOverlay(true);
+    this.panels.choice({ title: `Bus stop: ${stop.name}`, sub: 'FinVora City Bus loops through 7 stops. Pay by UPI, card or cash from your wallet (fares are illustrative).', options,
+      onPick: (id) => this.startBus(stop, BUS_STOPS.find((s) => s.id === id)), onClose: () => this._setOverlay(false) });
+  }
+
+  // ---------------------------------------------------------------- FinVora Metro (fast travel between stations)
+  openMetroMenu(st) {
+    const i0 = METRO_STATIONS.findIndex((s) => s.id === st.id);
+    const options = METRO_STATIONS.map((s, i) => ({ s, n: Math.abs(i - i0) })).filter((o) => o.n > 0)
+      .map((o) => ({ value: o.s.id, label: o.s.name, sub: `${o.n} station${o.n > 1 ? 's' : ''} · token ₹${metroFare(o.n)} · about ${2 + o.n * 2} min` }));
+    this._setOverlay(true);
+    this.panels.choice({ title: `FinVora Metro · ${st.name}`, sub: 'Blue Line, every 4 minutes. Buy a token by UPI, card or from your wallet (fares are illustrative).', options,
+      onPick: (id) => this.rideMetro(st, METRO_STATIONS.find((s) => s.id === id)), onClose: () => this._setOverlay(false) });
+  }
+
+  rideMetro(from, to) {
+    const n = Math.abs(METRO_STATIONS.indexOf(to) - METRO_STATIONS.indexOf(from)), fare = metroFare(n);
+    try { this.fin.travel(fare, `Metro token: ${from.name} to ${to.name}`); } catch (e) { this.hud.toast(e.message, { ms: 4500 }); return; }
+    this._walletHud(); this._saveFinance();
+    const dest = this.city.metro.find((m) => m.id === to.id).door;
+    const fade = this._fade ||= (() => { const d = el('<div class="metro-fade"><div class="metro-fade-in"><div class="metro-roundel">M</div><div data-t></div></div></div>'); document.body.appendChild(d); return d; })();
+    fade.querySelector('[data-t]').textContent = `Blue Line to ${to.name}…`;
+    fade.classList.add('on');
+    this._setOverlay(true);
+    setTimeout(() => {
+      this.player.place(dest.x + 1.2, dest.z, Math.PI / 2); this.cam.snapBehind(Math.PI / 2);
+      this.state.clockHour = (this.state.clockHour + (2 + n * 2) / 60) % 24;
+      setTimeout(() => { fade.classList.remove('on'); this._setOverlay(false); this.hud.toast(`${to.name}. Token ₹${fare} paid. Mind the gap!`, { gold: true }); this._persist(); }, 700);
+    }, 1300);
+  }
+
+  startBus(from, to) {
+    const i0 = BUS_STOPS.indexOf(from), i1 = BUS_STOPS.indexOf(to), stops = (i1 - i0 + BUS_STOPS.length) % BUS_STOPS.length;
+    const fare = FARES.bus(stops);
+    try { this.fin.travel(fare, `Bus ticket: ${from.name} to ${to.name}`); } catch (e) { this.hud.toast(e.message, { ms: 4500 }); return; }
+    this._walletHud(); this._saveFinance();
+    const path = lanePath(this.nav, { x: from.x, z: from.z }, { x: to.x, z: to.z });
+    const dest = this.city.busStops.find((s) => s.id === to.id);
+    this._startRide('bus', path, 9, () => { this.hud.toast(`${to.name}. Mind your step!`); return { x: dest.waitX, z: dest.waitZ }; });
+    this.hud.toast(`Ticket ₹${fare} paid. Next stop: ${to.name}.`, { gold: true });
+  }
+
+  rideQuote(buildingId) {
+    const b = buildingById[buildingId]; if (!b) return null;
+    const d = doorPoint(b, 3);
+    const path = lanePath(this.nav, this.player.pos, d);
+    const km = realKm(pathLength(path));
+    return { km: Math.round(km * 10) / 10, fare: FARES.auto(km), path, door: d, name: b.name };
+  }
+
+  startRickshaw(buildingId) {
+    if (this.inside || this.driving || this.ride) { this.hud.toast(this.inside ? 'Step outside first to catch a rickshaw.' : 'Get out of your vehicle first.'); return; }
+    const q = this.rideQuote(buildingId); if (!q || q.path.length < 2) { this.hud.toast('You are already there.'); return; }
+    this.panels.close();
+    this.hud.toast(`An auto-rickshaw pulls up. Meter on: about ₹${q.fare} to ${q.name}.`, { gold: true, ms: 4000 });
+    this._startRide('auto', q.path, 8, () => {
+      try { this.fin.travel(q.fare, `Auto-rickshaw to ${q.name} (${q.km} km)`, { force: true }); } catch { /* forced */ }
+      this._walletHud(); this._saveFinance();
+      this.hud.toast(`Arrived at ${q.name}. Meter fare ₹${q.fare} paid.`);
+      return { x: q.door.x, z: q.door.z };
+    });
+  }
+
+  _startRide(kind, path, speed, onArrive) {
+    this.waypoint = null;
+    this.ride = new Ride(this.scene, { kind, path, speed, onArrive: () => {
+      const r = this.ride; const p = onArrive();
+      this.player.standUp(); this.player.place(p.x, p.z, r.heading); this.cam.snapBehind(r.heading); this.cam.targetDistance = this._camDist || 7.5;
+      r.dispose(this.scene); this.ride = null; this._persist();
+    } });
+    this._camDist = this.cam.targetDistance;
+    this.player.seatIn(this.ride.mesh, this.ride.seat);
+    this.cam.targetDistance = kind === 'bus' ? 14 : 8; this.cam.pitch = 0.3; this.cam.snapBehind(this.ride.heading);
   }
 
   _svcCtx() {
@@ -410,7 +584,7 @@ export class Game {
   }
 
   computeLook() {
-    const a = this.state.avatar, eq = a.equipped || {}, look = { ...DEFAULT_LOOK, skin: a.skin, hair: a.hair, hairStyle: a.hairStyle, accs: [] };
+    const a = this.state.avatar, eq = a.equipped || {}, look = { ...DEFAULT_LOOK, skin: a.skin, hair: a.hair, hairStyle: a.hairStyle, body: a.body || 'm', build: a.build || 'average', height: a.height || 1, facial: a.facial || 'none', accs: [] };
     const item = (slot) => { const w = this.fin?.wardrobe.find((x) => x.id === eq[slot]); return w ? { w, it: clothById[w.itemId] } : null; };
     const top = item('top');
     if (top) { look.top = top.it.style; if (top.it.outer) { look.outer = top.w.color; look.shirt = top.it.style === 'saree' ? top.w.color : 0xf2f2ee; } else look.shirt = top.w.color; if (top.it.style === 'suit') look.pants = top.w.color; }
@@ -547,6 +721,12 @@ export class Game {
     const n = this.npcs.byId(id);
     if (!n) return;
     this.dialogue.close();
+    if (n.onDuty) {
+      const ac = AGENT_COUNTER[id], b = buildingById[INTERIORS[ac.interior].building], d = doorPoint(b);
+      this.waypoint = { id: b.id, name: b.name, x: d.x, z: d.z, side: b.door };
+      this.hud.toast(`${n.def.name} is working at the ${ac.name} counter inside ${b.name}. Waypoint set.`);
+      return;
+    }
     this.waypoint = { id: `npc:${id}`, name: n.def.name, npc: n, x: n.pos.x, z: n.pos.z };
     this.hud.toast(`Following ${n.def.name}. Look for the gold beam.`);
   }
@@ -625,7 +805,14 @@ export class Game {
     }
 
     const prevDist = this.player.distanceWalked;
-    if (this.driving) {
+    if (this.ride) {
+      this.ride.update(dt);
+      if (this.ride) {
+        this.player.pos.x = this.ride.pos.x; this.player.pos.z = this.ride.pos.z; this.player.yaw = this.ride.heading;
+        if (!inp.lookDX && !inp.lookDY) { let d = this.ride.heading + Math.PI - this.cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.cam.yaw += d * Math.min(1, dt * 2); }
+        this.hud.setSpeed(this.ride.kmh);
+      }
+    } else if (this.driving) {
       for (let k = 0, n = Math.ceil(dt / 0.034), h = dt / n; k < n; k++) this.car.update(h, inp, { traffic: this.traffic, npcs: this.npcs.npcs });
       this.player.pos.x = this.car.pos.x; this.player.pos.z = this.car.pos.z; this.player.yaw = this.car.heading; this.player._sync();
       // Camera eases in behind the car while moving, unless the player is looking around.
@@ -643,53 +830,69 @@ export class Game {
     } else {
       this.cam.ignoreFoliage = false;
       this.player.update(dt, inp, this.cam.yaw);
-      this.traffic.resolve(this.player.pos, PLAYER.radius);
-      for (const c of this.car.circles()) { const dx = this.player.pos.x - c.x, dz = this.player.pos.z - c.z, d = Math.hypot(dx, dz), m = c.r + PLAYER.radius; if (d < m && d > 1e-4) { this.player.pos.x += dx / d * (m - d); this.player.pos.z += dz / d * (m - d); } }
+      if (!this.inside) {
+        this.traffic.resolve(this.player.pos, PLAYER.radius);
+        for (const c of this.car.circles()) { const dx = this.player.pos.x - c.x, dz = this.player.pos.z - c.z, d = Math.hypot(dx, dz), m = c.r + PLAYER.radius; if (d < m && d > 1e-4) { this.player.pos.x += dx / d * (m - d); this.player.pos.z += dz / d * (m - d); } }
+      }
       this.player._sync();
-      this.car.update(dt, inp, { traffic: this.traffic, npcs: this.npcs.npcs });
+      if (!this.inside) this.car.update(dt, inp, { traffic: this.traffic, npcs: this.npcs.npcs });
     }
     this._tutorialEvent('move', this.player.distanceWalked - prevDist);
     this._tutorialEvent('look', Math.abs(inp.lookDX) + Math.abs(inp.lookDY));
     if (this._phoneCamYaw !== null && this._phoneCamYaw !== undefined) { let d = this._phoneCamYaw - this.cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.cam.yaw += d * Math.min(1, dt * 4); }
     this.cam.update(dt, inp, { x: this.player.pos.x, y: this.player.y, z: this.player.pos.z });
-    this.npcs.update(dt, this.hour, this.player.pos, this.camera, this.preset.cullRange);
-    this._peds = this._peds || [];
-    this._peds.length = 0; if (!this.driving) this._peds.push(this.player.pos);
-    for (const n of this.npcs.npcs) this._peds.push(n.pos);
-    this.traffic.update(dt, this._peds, this.camera.position, this.preset.cullRange, [this.car]);
+    const hourNow = this.hour, duty = onDuty(hourNow);
+    this.fin.clockHour = hourNow;
+    if (this.fin.amo?.length && this.fin.marketOpen()) {
+      const res = this.fin.executeAMO();
+      if (res.length) { this._walletHud(); this._saveFinance(); this.hud.toast(`Market open: ${res.filter((r) => r.ok).length} after-market order${res.length > 1 ? 's' : ''} executed${res.some((r) => !r.ok) ? `, ${res.filter((r) => !r.ok).length} rejected` : ''}.`, { gold: true }); }
+    }
+    for (const n of this.npcs.npcs) n.onDuty = n.keyNpc && duty && !!AGENT_COUNTER[n.def.id];
+    if (this.inside) this.inside.update(dt, hourNow, elapsed);
+    else {
+      this.npcs.update(dt, hourNow, this.player.pos, this.camera, this.preset.cullRange);
+      this._peds = this._peds || [];
+      this._peds.length = 0; if (!this.driving && !this.ride) this._peds.push(this.player.pos);
+      for (const n of this.npcs.npcs) if (!n.onDuty) this._peds.push(n.pos);
+      this.traffic.update(dt, this._peds, this.camera.position, this.preset.cullRange, this.ride ? [this.car, this.ride] : [this.car]);
+    }
     this.hud.myCar = this.car;
 
     // Interaction prompt
     const target = this.overlayOpen ? null : this._findTarget();
     this.target = target;
     this.hud.setPrompt(this.driving && this.input.touch ? null : target);
-    this.input.setInteractLabel(target ? ({ door: 'ENTER', car: 'DRIVE', 'exit-car': 'EXIT' }[target.kind] || 'TALK') : '');
+    this.input.setInteractLabel(target ? ({ door: 'ENTER', car: 'DRIVE', 'exit-car': 'EXIT', bus: 'BUS', metro: 'METRO', spot: target.spot?.kind === 'exit' ? 'EXIT' : 'USE' }[target.kind] || 'TALK') : '');
     if (target && inp.pressed.has('interact')) this._interact(target);
 
     // World animation
+    this.city.clockHour = hourNow;
     for (const fn of this.city.animated) fn(dt, elapsed);
+    if (!this.inside) this.city.updateSignals?.(dt, this.traffic.t || 0);
     if (this.state.settings.autoTime !== false) {
       this.simTimer += dt;
       if (this.simTimer > 20) { this.simTimer = 0; this._advanceSim(1); }
     }
-    this._dayNight();
+    if (!this.inside) this._dayNight();
 
     // Waypoint
     if (this.waypoint?.npc) { this.waypoint.x = this.waypoint.npc.pos.x; this.waypoint.z = this.waypoint.npc.pos.z; }
-    if (this.waypoint) {
+    if (this.waypoint && !this.inside) {
       const d = Math.hypot(this.waypoint.x - this.player.pos.x, this.waypoint.z - this.player.pos.z);
       this.beacon.visible = true; this.beacon.position.set(this.waypoint.x, 30, this.waypoint.z);
       this.gps.update(dt, this.player.pos, this.waypoint, elapsed);
       const left = Math.max(d, this.gps.length());
       this.hud.setWaypoint(`${this.waypoint.name} · ${left >= 1000 ? (left / 1000).toFixed(1) + ' km' : Math.round(left) + ' m'}`);
       if (d < (this.waypoint.npc ? 2.5 : 3)) { this.hud.toast(this.waypoint.npc ? `You found ${this.waypoint.name}. Press ${this.input.touch ? 'TALK' : 'E'} to talk.` : `Arrived at ${this.waypoint.name}`); this.waypoint = null; }
-    } else { this.beacon.visible = false; this.hud.setWaypoint(null); this.gps.clear(); }
+    } else if (!this.inside) { this.beacon.visible = false; this.hud.setWaypoint(null); this.gps.clear(); }
 
     this.hud.setClock(this.hour);
-    this.hud.drawMinimap(dt, this.player, this.npcs.npcs, this.waypoint, this.traffic.cars, this.cam.yaw, this.waypoint ? this.gps.route : null);
-    this.renderer.render(this.scene, this.camera);
+    if (!this.inside) this.hud.drawMinimap(dt, this.player, this._visibleNpcs(), this.waypoint, this.traffic.cars, this.cam.yaw, this.waypoint ? this.gps.route : null);
+    this.renderer.render(this.inside ? this.inside.scene : this.scene, this.camera);
     this._perf(dt);
   }
+
+  _visibleNpcs() { const a = this._vn || (this._vn = []); a.length = 0; for (const n of this.npcs.npcs) if (!n.onDuty) a.push(n); return a; }
 
   _dayNight() {
     const h = this.hour;
@@ -741,6 +944,7 @@ export class Game {
       npcs: this.npcs.npcs.filter((n) => n.keyNpc).map((n) => ({ id: n.def.id, x: n.pos.x, z: n.pos.z, state: n.state })),
       cars: this.traffic.cars.map((c) => ({ x: c.pos.x, z: c.pos.z, speed: c.speed })),
       myCar: { ...this.car.serialize(), kmh: this.car.kmh, driving: this.driving },
+      inside: this.inside ? this.inside.key : null, riding: this.ride ? this.ride.kind : null,
       cash: this.fin.cash, simDate: this.fin.date, ledger: this.fin.ledger.length,
       journal: this.state.journal.length,
       fps: this.fpsAcc.fps,

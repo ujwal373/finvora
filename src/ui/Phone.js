@@ -1,7 +1,8 @@
 import { el, esc, $, $$, initials } from './dom.js';
 import { formatINR } from '../config.js';
 import { KEY_NPCS, npcById } from '../data/npcs.js';
-import { carById, clothById, SKIN_TONES, HAIR_COLORS, HAIR_STYLES } from '../data/shop.js';
+import { carById, clothById, SKIN_TONES, HAIR_COLORS, HAIR_STYLES, BODY_FORMS, BUILDS, HEIGHTS, FACIAL } from '../data/shop.js';
+import { BUILDINGS } from '../data/buildings.js';
 
 // The in-game FinVora phone: Map, Wallet, Avatar, Garage, Messages, Contacts.
 // Opened from the HUD phone button or the T key. Rendered inside a Panels modal.
@@ -9,7 +10,7 @@ import { carById, clothById, SKIN_TONES, HAIR_COLORS, HAIR_STYLES } from '../dat
 const hexCss = (n) => '#' + n.toString(16).padStart(6, '0');
 const APPS = [
   ['map', 'Map', '🗺'], ['wallet', 'Wallet', '₹'], ['avatar', 'Avatar', '☺'],
-  ['garage', 'Garage', '🚗'], ['messages', 'Messages', '✉'], ['contacts', 'Contacts', '☎'],
+  ['garage', 'Garage', '🚗'], ['messages', 'Messages', '✉'], ['contacts', 'Contacts', '☎'], ['rides', 'Rides', '🛺'],
 ];
 
 export function openPhone(panels, g, startApp = null) {
@@ -37,7 +38,17 @@ export function openPhone(panels, g, startApp = null) {
     if (app === 'garage') return garage();
     if (app === 'messages') return messages();
     if (app === 'contacts') return contacts();
+    if (app === 'rides') return rides();
   };
+
+  function rides() {
+    const dests = BUILDINGS.map((b) => ({ b, q: g.rideQuote(b.id) })).filter((x) => x.q && x.q.path.length > 1);
+    screen.innerHTML = `${head('Rides')}<p class="small muted" style="margin:.2rem 0 .6rem">Call an auto-rickshaw: it drives you there and the meter fare (illustrative, Mumbai-style) is paid from your wallet on arrival. For the city bus, walk to a red bus shelter and press ${g.input.touch ? 'BUS' : 'E'}: ₹10 to ₹30.</p>
+      ${g.inside || g.driving ? `<div class="fw-msg info">${g.inside ? 'Step outside to catch a rickshaw.' : 'Get out of your vehicle first.'}</div>` : ''}
+      <div class="pick">${dests.map(({ b, q }) => `<button class="pick-row" data-ride="${b.id}" ${g.inside || g.driving ? 'disabled' : ''}><span><b>${esc(b.name)}</b><small>${q.km} km</small></span><span class="r mono">₹${q.fare}</span></button>`).join('')}</div>`;
+    bindHome();
+    $$(screen, '[data-ride]').forEach((b) => b.addEventListener('click', () => g.startRickshaw(b.dataset.ride)));
+  }
 
   function avatar() {
     const a = g.state.avatar, eq = a.equipped;
@@ -57,6 +68,10 @@ export function openPhone(panels, g, startApp = null) {
     $$(screen, '[data-skin]').forEach((b) => b.addEventListener('click', () => set({ skin: Number(b.dataset.skin) })));
     $$(screen, '[data-hair]').forEach((b) => b.addEventListener('click', () => set({ hair: Number(b.dataset.hair) })));
     $$(screen, '[data-hs]').forEach((b) => b.addEventListener('click', () => set({ hairStyle: b.dataset.hs })));
+    $$(screen, '[data-body]').forEach((b) => b.addEventListener('click', () => set({ body: b.dataset.body, ...(b.dataset.body === 'f' ? { facial: 'none' } : {}) })));
+    $$(screen, '[data-build]').forEach((b) => b.addEventListener('click', () => set({ build: b.dataset.build })));
+    $$(screen, '[data-height]').forEach((b) => b.addEventListener('click', () => set({ height: Number(b.dataset.height) })));
+    $$(screen, '[data-facial]').forEach((b) => b.addEventListener('click', () => set({ facial: b.dataset.facial })));
     $$(screen, '[data-w]').forEach((b) => b.addEventListener('click', () => { g.wear(b.dataset.w, true); avatar(); }));
     $(screen, '[data-reset]')?.addEventListener('click', () => { a.equipped = {}; g.applyAvatar(); avatar(); });
     $(screen, '[data-go]').addEventListener('click', () => { panels.close(); g.goTo(b0('clothing-store')); });

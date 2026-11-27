@@ -4,129 +4,38 @@
 
 export const BUILDINGS = [
   {
-    id: 'stock-exchange', name: 'Stock Exchange', short: 'EXCHANGE', style: 'classical',
-    x: -50, z: -48, w: 30, d: 24, h: 14, color: 0xd9d2c3, accent: 0xd4a846, door: '+z', desk: 'exchange-desk',
-    blurb: 'Buy and sell shares of fictional listed companies and ETFs with your virtual wallet. Learn how orders, prices and risk work.',
-    services: ['trade-stocks', 'trade-etfs', 'market-board'],
+    id: 'accofintra-hq', name: 'AccoFinTra Tower', short: 'ACCOFINTRA', style: 'tower', interior: 'tower',
+    x: 0, z: -6, w: 28, d: 20, h: 120, color: 0x141a24, accent: 0xd4a846, door: '+z',
+    blurb: 'The heart of FinVora and the tallest building in the city. Walk in: agents at 16 counters handle funds, SIPs, bonds and derivatives, gold, research and IPOs, savings schemes, insurance, retirement, tax, property, jobs, your credit report, KYC and UPI, courses, calculators and AccoFinTra investor relations.',
+    services: [],
   },
   {
-    id: 'bond-market', name: 'Bond Market', short: 'BONDS', style: 'block',
-    x: -8.5, z: -50, w: 15, d: 26, h: 18, color: 0x8c9bab, accent: 0x5aa9e6, door: '+z',
-    blurb: 'Government securities, T-bills and corporate bonds: coupons, maturity, yield and why bond prices fall when rates rise.',
-    services: ['bond-desk', 'calc:bond'],
+    id: 'stock-exchange', name: 'FinVora Stock Exchange', short: 'STOCK EXCHANGE', style: 'bse', interior: 'exchange',
+    x: -50, z: -50, w: 30, d: 28, h: 92, color: 0xcfc8b8, accent: 0xd4a846, door: '+z', desk: 'exchange-desk',
+    blurb: 'A tall exchange tower with a trading hall, inspired by Mumbai\'s historic exchange building. Trade shares and ETFs at the counters, watch the giant index board, and bid for IPOs at the listings desk.',
+    services: [],
   },
   {
-    id: 'derivatives', name: 'Derivatives Exchange', short: 'DERIVATIVES', style: 'tower',
-    x: 9, z: -50, w: 14, d: 24, h: 30, color: 0x3b4352, accent: 0xe5534b, door: '+z',
-    blurb: 'Futures and options as education only: premiums, expiry and payoff diagrams. Never trading tips.',
-    services: ['fno', 'calc:option'],
+    id: 'bank', name: 'FinVora Bank', short: 'FINVORA BANK', style: 'bank', interior: 'bank',
+    x: -50, z: 0, w: 30, d: 24, h: 15, color: 0xe6dfd0, accent: 0x2fbf71, door: '+x', desk: 'bank-desk',
+    blurb: 'A classic banking hall with separate counters: accounts and cards, deposits, loans, and the manager\'s cabin.',
+    services: [],
   },
   {
-    id: 'commodities', name: 'Commodities Exchange', short: 'COMMODITIES', style: 'block',
-    x: 41, z: -50, w: 14, d: 26, h: 16, color: 0xb08a5a, accent: 0xf0c868, door: '-x',
-    blurb: 'Gold, silver and crude oil, and why they move differently from shares. Gold and silver ETFs trade at the Stock Exchange.',
-    services: ['gold-desk', 'commodity-board'],
-  },
-  {
-    id: 'research', name: 'Investment Research Centre', short: 'RESEARCH', style: 'glass',
-    x: 59, z: -50, w: 14, d: 26, h: 24, color: 0x4a6a7a, accent: 0x5aa9e6, door: '+z',
-    blurb: 'Read the numbers behind each fictional company: revenue, profit, debt and valuation, before you decide.',
-    services: ['results', 'ipo', 'company-research'],
-  },
-  {
-    id: 'bank', name: 'Banking District', short: 'BANK', style: 'tower',
-    x: -50, z: 0, w: 22, d: 22, h: 40, color: 0x2f3b4a, accent: 0x2fbf71, door: '+x', desk: 'bank-desk',
-    blurb: 'Fixed and recurring deposits, personal loans with real EMI maths, and the interest calculators every borrower should see.',
-    services: ['bank-accounts', 'bank-deposits', 'bank-loans', 'interest-wall', 'calc:fd', 'calc:rd', 'calc:emi', 'calc:card'],
-  },
-  {
-    id: 'mutual-fund', name: 'Mutual Fund Centre', short: 'MUTUAL FUNDS', style: 'block',
-    x: 50, z: -8, w: 26, d: 14, h: 22, color: 0x2e5a4c, accent: 0x2fbf71, door: '-x',
-    blurb: 'Equity, debt, hybrid, index, ELSS and liquid funds. Invest a lump sum, start SIPs or step-up SIPs, and track NAVs.',
-    services: ['mf-invest', 'mf-sip', 'calc:sip', 'calc:stepup', 'calc:lumpsum', 'calc:swp'],
-  },
-  {
-    id: 'fintech', name: 'Financial Technology Hub', short: 'FINTECH HUB', style: 'glass',
-    x: 50, z: 9, w: 26, d: 14, h: 20, color: 0x26303d, accent: 0x5aa9e6, door: '-x',
-    blurb: 'UPI, digital payments and how to stay safe with digital money. Test yourself in the scam-spotting lab.',
-    services: ['kyc-upi', 'scam-lab', 'link-lab'],
-  },
-  {
-    id: 'academy', name: 'Financial Academy', short: 'ACADEMY', style: 'campus',
-    x: -50, z: 50, w: 30, d: 24, h: 12, color: 0xc9b48a, accent: 0xd4a846, door: '-z', desk: 'academy-desk',
-    blurb: 'The learning heart of FinVora. Interactive demos, your Knowledge Journal, and the maths behind money.',
-    services: ['courses', 'doubling-lab', 'journal', 'calc:inflation', 'calc:cagr'],
-  },
-  {
-    id: 'insurance', name: 'Insurance Centre', short: 'INSURANCE', style: 'block',
-    x: -8.5, z: 50, w: 15, d: 26, h: 20, color: 0x6b5a7a, accent: 0xd4a846, door: '-z',
-    blurb: 'Protect before you grow: term life cover, health cover, and why insurance and investment are different jobs.',
-    services: ['insurance-desk', 'calc:cover'],
-  },
-  {
-    id: 'retirement', name: 'Retirement Planning Centre', short: 'RETIREMENT', style: 'campus',
-    x: 9, z: 50, w: 14, d: 24, h: 14, color: 0x9a8f7a, accent: 0x2fbf71, door: '-z',
-    blurb: 'NPS, EPF and VPF, with their rules spelled out, plus a retirement corpus planner.',
-    services: ['epf', 'nps', 'calc:retirement', 'calc:epf'],
-  },
-  {
-    id: 'real-estate', name: 'Real Estate Investment Centre', short: 'REAL ESTATE', style: 'stepped',
-    x: 50, z: 50, w: 24, d: 24, h: 30, color: 0x7d6a58, accent: 0xf0c868, door: '-z',
-    blurb: 'REITs, InvITs, rental yield and the true cost of owning property, compared honestly with other assets.',
-    services: ['property', 'calc:rental'],
-  },
-  // ---------------------------------------------------------------- outer districts
-  {
-    id: 'govt-savings', name: 'Government Savings Office', short: 'SMALL SAVINGS', style: 'campus',
-    x: 0, z: -100, w: 26, d: 20, h: 13, color: 0xc7b08a, accent: 0xe5534b, door: '+z',
-    blurb: 'Post office small savings schemes backed by the Government of India: PPF, NSC, Senior Citizen Savings Scheme and Sukanya Samriddhi.',
-    services: ['govt-schemes', 'calc:ppf'],
-  },
-  {
-    id: 'tax-office', name: 'Tax Office', short: 'TAX OFFICE', style: 'block',
-    x: 100, z: 0, w: 22, d: 24, h: 18, color: 0x5e6a5a, accent: 0xd4a846, door: '-x',
-    blurb: 'How investments are taxed, why holding period matters, and a checker for your own simulated holdings.',
-    services: ['tax-filing', 'holding-periods'],
-  },
-  {
-    id: 'calc-centre', name: 'Financial Calculator Centre', short: 'CALCULATORS', style: 'glass',
-    x: -100, z: 0, w: 22, d: 24, h: 16, color: 0x2a3644, accent: 0xf0c868, door: '+x',
-    blurb: 'Every FinVora calculator in one place, each showing its formula, inputs, assumptions and a full breakdown.',
-    services: ['all-calcs'],
-  },
-  {
-    id: 'car-showroom', name: 'FinVora Motors Showroom', short: 'MOTORS', style: 'glass',
-    x: 100, z: -50, w: 28, d: 22, h: 12, color: 0x1f2630, accent: 0xd4a846, door: '-x',
+    id: 'car-showroom', name: 'FinVora Motors Showroom', short: 'MOTORS', style: 'showroom',
+    x: 100, z: -50, w: 30, d: 20, h: 9, color: 0x1f2630, accent: 0xd4a846, door: '-x',
     blurb: 'Scooters to sports cars. Pay in full or with a car loan, then live with insurance, fuel and depreciation. A car is a cost, not an investment.',
     services: ['car-showroom', 'calc:emi'],
   },
   {
-    id: 'clothing-store', name: 'Style Studio', short: 'STYLE STUDIO', style: 'stepped',
-    x: -100, z: 100, w: 24, d: 22, h: 14, color: 0x8a5a6a, accent: 0xf0c868, door: '+x',
+    id: 'clothing-store', name: 'Style Studio', short: 'STYLE STUDIO', style: 'boutique',
+    x: -100, z: 100, w: 22, d: 18, h: 11, color: 0xf1e9e4, accent: 0xc0577a, door: '+x',
     blurb: 'Outfits and accessories for your avatar. Everything you buy stays in your wardrobe; change looks any time from your phone.',
     services: ['clothing-store', 'calc:budget'],
   },
   {
-    id: 'accofintra-hq', name: 'AccoFinTra Tower', short: 'ACCOFINTRA', style: 'tower',
-    x: 0, z: -150, w: 26, d: 26, h: 110, color: 0x1a1f28, accent: 0xd4a846, door: '+z',
-    blurb: 'Headquarters of AccoFinTra and the tallest building in FinVora. The market floor and company research live on the lower levels.',
-    services: ['aft-investor', 'careers', 'market-board'],
-  },
-  {
-    id: 'job-centre', name: 'FinVora Job Centre', short: 'JOB CENTRE', style: 'glass',
-    x: 50, z: -100, w: 24, d: 20, h: 22, color: 0x2a4a5e, accent: 0x5aa9e6, door: '+z',
-    blurb: 'Find a job, see your payslip and learn where your salary goes: PF, TDS and professional tax.',
-    services: ['jobs'],
-  },
-  {
-    id: 'credit-bureau', name: 'FinVora Credit Bureau', short: 'CREDIT BUREAU', style: 'block',
-    x: -50, z: -100, w: 22, d: 20, h: 16, color: 0x3d4656, accent: 0x2fbf71, door: '+z',
-    blurb: 'Check your credit score for free, see what raises or lowers it, and review every loan and card on your report.',
-    services: ['credit-report', 'bank-accounts'],
-  },
-  {
-    id: 'supermart', name: 'FinVora SuperMart', short: 'SUPERMART', style: 'block',
-    x: 100, z: 100, w: 28, d: 22, h: 10, color: 0xc9643c, accent: 0xf0c868, door: '-z',
+    id: 'supermart', name: 'FinVora SuperMart', short: 'SUPERMART', style: 'mart',
+    x: 100, z: 104, w: 32, d: 22, h: 9, color: 0xeeeae2, accent: 0xe5534b, door: '-z',
     blurb: 'Groceries, household shopping and your monthly bills. Choose a grocery plan and how you pay.',
     services: ['supermart'],
   },
@@ -136,31 +45,103 @@ export const BUILDINGS = [
     blurb: 'Petrol, CNG and EV fast charging. Park your vehicle under the canopy and fill up.',
     services: ['fuel-station'],
   },
+  {
+    id: 'home', name: 'Your Home', short: 'HOME', style: 'house', interior: 'home',
+    x: 46, z: 46, w: 16, d: 12, h: 7.5, color: 0xf0e6d6, accent: 0xb5563c, door: '-z',
+    blurb: 'Your own house with a garage. Check your portfolio on the laptop, change clothes, rest, or take a car out of the garage.',
+    services: [],
+  },
+  {
+    id: 'mall', name: 'FinVora Central Mall', short: 'CENTRAL MALL', style: 'mall', interior: 'mall',
+    x: 50, z: 0, w: 36, d: 36, h: 17, color: 0xe9e5dc, accent: 0x5aa9e6, door: '-x',
+    blurb: 'Three floors of shops under a glass atrium. Gadgets on no-cost EMI (read the fine print), fashion, a food court and a cash machine.',
+    services: [],
+  },
+  {
+    id: 'cinema', name: 'Cineplex FinVora', short: 'CINEPLEX', style: 'cinema', interior: 'cinema',
+    x: -50, z: 50, w: 30, d: 28, h: 16, color: 0x1b1d24, accent: 0xe5534b, door: '+x',
+    blurb: 'A four-screen multiplex. Tickets, snacks, and a lesson in how much the popcorn really costs.',
+    services: [],
+  },
+  {
+    id: 'restaurant', name: 'Spice Route Restaurant', short: 'SPICE ROUTE', style: 'restaurant',
+    x: -50, z: 100, w: 24, d: 18, h: 9, color: 0xc9845a, accent: 0xf08a3c, door: '+x',
+    blurb: 'Thalis, biryani and filter coffee with a rooftop terrace. See what eating out every day really adds up to.',
+    services: ['restaurant', 'calc:budget'],
+  },
+  {
+    id: 'hospital', name: 'FinVora City Hospital', short: 'HOSPITAL', style: 'hospital',
+    x: 100, z: 0, w: 30, d: 26, h: 26, color: 0xf4f4f2, accent: 0xe5534b, door: '-x',
+    blurb: 'Outpatient doctors, health check-ups, day-care treatment and a 24 × 7 pharmacy. See how health insurance changes the bill.',
+    services: ['hospital', 'pharmacy', 'insurance-desk'],
+  },
+  {
+    id: 'school', name: 'FinVora Public School and College', short: 'SCHOOL', style: 'school',
+    x: -100, z: -100, w: 34, d: 24, h: 12, color: 0xb5563c, accent: 0xf2f2ee, door: '+x',
+    blurb: 'Evening diploma courses for adults, with fees paid upfront or through an education loan (and its tax benefit).',
+    services: ['school', 'calc:emi'],
+  },
+  {
+    id: 'gym', name: 'FinVora Fit Gym', short: 'FINVORA FIT', style: 'gym',
+    x: 50, z: -100, w: 24, d: 18, h: 9, color: 0x1c1f24, accent: 0x9be15d, door: '+z',
+    blurb: 'Treadmills, weights and classes. Monthly or annual plans: the cheaper one is the one you actually use.',
+    services: ['gym'],
+  },
 ];
 
-// Block uses (block centre coordinates). The 5 × 5 core is hand-placed; the two outer rings are generated.
+// Services that used to have their own buildings now live at counters inside AccoFinTra Tower.
+// Old ids still resolve (waypoints, agent "show me" buttons) and lead to the tower.
+export const MOVED_TO_TOWER = ['bond-market', 'derivatives', 'commodities', 'research', 'mutual-fund', 'fintech', 'academy', 'insurance', 'retirement', 'real-estate', 'govt-savings', 'tax-office', 'calc-centre', 'job-centre', 'credit-bureau'];
+
+// Bus stops (shelters on the pavement). The city bus loops through them in this order.
+export const BUS_STOPS = [
+  { id: 'bs-tower', name: 'AccoFinTra Tower', x: 12, z: 20.5, road: 'z', at: 25 },
+  { id: 'bs-bank', name: 'Bank, Exchange and Cinema', x: -62, z: 20.5, road: 'z', at: 25 },
+  { id: 'bs-style', name: 'Style Studio and Spice Route', x: -79.5, z: 112, road: 'x', at: -75 },
+  { id: 'bs-bazaar', name: 'Bazaar', x: 12, z: 120.5, road: 'z', at: 125 },
+  { id: 'bs-mart', name: 'SuperMart and Home', x: 79.5, z: 62, road: 'x', at: 75 },
+  { id: 'bs-motors', name: 'Hospital and Motors', x: 79.5, z: -38, road: 'x', at: 75 },
+  { id: 'bs-north', name: 'School and Gym', x: 12, z: -120.5, road: 'z', at: -125 },
+];
+
+// Block uses (block centre coordinates). The 5 × 5 core is hand-placed; the outer ring is generated.
+// Blocks holding a landmark building are left out automatically. (0, 50) is Central Park (built separately).
 const CORE = {
-  residential: [[-100, -100], [-100, 50], [100, 50], [-50, 100], [50, 100]],
+  residential: [[-100, -100], [-100, 0], [-100, 50], [100, 50], [-50, 100], [50, 100], [-150, 100], [-150, 0]],
   parks: [[100, -100]],
   bazaar: [[0, 100]],
+  business: [[0, -50], [50, -50], [-50, -100], [0, -100], [50, -100], [100, 0], [100, -50]],
 };
-const LANDMARKS = { lake: [[-150, 150]], stadium: [[150, 150]] };
+const LANDMARKS = { lake: [[-150, 150]], stadium: [[150, 150]], centralPark: [[0, 50]] };
 const RING = [-200, -150, -100, -50, 0, 50, 100, 150, 200];
+const hasBuilding = (x, z) => BUILDINGS.some((b) => Math.abs(b.x - x) < 25 && Math.abs(b.z - z) < 25);
 const extra = { residential: [], parks: [], business: [] };
-const taken = (x, z) => [...Object.values(CORE), ...Object.values(LANDMARKS)].some((l) => l.some(([a, b]) => a === x && b === z)) || BUILDINGS.some((b) => Math.abs(b.x - x) < 25 && Math.abs(b.z - z) < 25);
+const taken = (x, z) => [...Object.values(CORE), ...Object.values(LANDMARKS)].some((l) => l.some(([a, b]) => a === x && b === z)) || hasBuilding(x, z);
 for (const x of RING) for (const z of RING) {
   if (Math.max(Math.abs(x), Math.abs(z)) <= 100 || taken(x, z)) continue;
   const k = ((x * 7 + z * 13) / 50 + 100) % 9; // deterministic variety
   if (z <= -150 || (x >= 150 && z <= 50)) extra[k < 1.5 ? 'parks' : 'business'].push([x, z]);
   else extra[k < 2 ? 'parks' : 'residential'].push([x, z]);
 }
+const free = (l) => l.filter(([x, z]) => !hasBuilding(x, z));
 export const DISTRICTS = {
-  residential: [...CORE.residential, ...extra.residential],
-  parks: [...CORE.parks, ...extra.parks],
+  residential: free([...CORE.residential, ...extra.residential]),
+  parks: free([...CORE.parks, ...extra.parks]),
   bazaar: CORE.bazaar,
-  business: extra.business,
+  business: free([...CORE.business, ...extra.business]),
   ...LANDMARKS,
 };
+
+// FinVora Metro Blue Line: an elevated line over the boulevard at z = -25 (behind AccoFinTra Tower).
+// Each station has a street entrance on the north pavement. Fares are illustrative.
+export const METRO_Z = -25;
+export const METRO_STATIONS = [
+  { id: 'm-west', name: 'West End', x: -150 },
+  { id: 'm-exchange', name: 'Exchange and Bank', x: -50, side: 1 },
+  { id: 'm-mall', name: 'Central Mall', x: 50 },
+  { id: 'm-east', name: 'Hospital and East Park', x: 150 },
+];
+export const metroFare = (stops) => [0, 20, 30, 40][Math.min(3, stops)];
 
 /** Entrance point (outside the door) and the yaw a player faces when walking in. */
 export function doorPoint(b, offset = 1.9) {
@@ -174,3 +155,4 @@ export function doorPoint(b, offset = 1.9) {
 }
 
 export const buildingById = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
+for (const id of MOVED_TO_TOWER) buildingById[id] = buildingById['accofintra-hq'];

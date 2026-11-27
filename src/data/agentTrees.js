@@ -12,7 +12,7 @@ const INTROS = {
   'loan-officer': "{greeting}, {name}. {self}, loan officer. Before anyone borrows, I make sure they understand the EMI. Ask away.",
   'card-counsellor': "Hi {name}, I'm {self}. I help people use credit cards without getting trapped by them. What's on your mind?",
   'deposits-officer': "{greeting}. {self}, deposits desk. FDs, RDs and savings accounts: safe, simple, and still worth understanding properly.",
-  'savings-agent': "Namaste, {name}. I'm {self} from the Government Savings Office. PPF, NSC, SCSS and Sukanya Samriddhi are all here. What can I explain?",
+  'savings-agent': "Namaste, {name}. I'm {self} from the Small Savings counter in AccoFinTra Tower. PPF, NSC, SCSS and Sukanya Samriddhi are all here. What can I explain?",
   'retirement-planner': "{greeting}, {name}. {self}, retirement planner. The earlier you start, the easier this gets. What would you like to know?",
   'tax-consultant': "Hello {name}. {self}, tax consultant. I explain how investments are taxed; for your own return, always check with a qualified professional.",
   'insurance-consultant': "{greeting}. I'm {self}. Protect first, then grow: that's my motto. Ask me about life or health cover.",

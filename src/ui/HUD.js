@@ -70,6 +70,14 @@ export class HUD {
 
   setBadge(n) { const b = $(this.node, '[data-badge]'); b.classList.toggle('hidden', !n); b.textContent = n > 9 ? '9+' : n; }
 
+  /** Inside a building: hide the city minimap and show where you are. */
+  setInside(title) {
+    const w = this.node.querySelector('.minimap-wrap'); if (w) w.style.display = title ? 'none' : '';
+    let chip = this.node.querySelector('[data-inside]');
+    if (!chip) { chip = document.createElement('div'); chip.className = 'inside-chip glass'; chip.dataset.inside = ''; this.node.appendChild(chip); }
+    chip.textContent = title ? `Inside: ${title}` : ''; chip.style.display = title ? '' : 'none';
+  }
+
   setSpeed(kmh, fuel = null) {
     const s = $(this.node, '[data-speedo]');
     s.classList.toggle('hidden', kmh === null);
@@ -120,7 +128,7 @@ export class HUD {
     for (const bx of CITY.blocks) for (const bz of CITY.blocks) {
       if (!near(bx, bz, 30)) continue;
       const is = (list) => list.some(([x, z]) => x === bx && z === bz);
-      const park = (bx === 0 && bz === 0) || is(DISTRICTS.parks);
+      const park = (bx === 0 && bz === 0) || is(DISTRICTS.parks) || is(DISTRICTS.centralPark || []);
       g.fillStyle = is(DISTRICTS.lake) ? '#2a5f80' : park ? '#2e4a2a' : is(DISTRICTS.residential) ? '#3d3830' : is(DISTRICTS.business) ? '#323c49' : '#30343b';
       g.fillRect(tx(bx - 21.5), tz(bz - 21.5), 43 * s, 43 * s);
     }

@@ -8,7 +8,7 @@ FinVora is an educational simulation. All money in it is virtual and every price
 
 `dist/index.html` is the whole game in ONE file. Double-click it, or send it to a phone and open it in the browser. No server, no login, no internet needed. Progress is saved in that browser.
 
-To put it online, see HOSTING.md. A ready-built copy is in site/index.html: drag the site folder onto Netlify Drop for a live link in a minute, or push this folder to GitHub and the included workflow publishes it to GitHub Pages.
+To put it online later, upload that single file to any free static host (GitHub Pages, Netlify, Cloudflare Pages, Vercel) and share the link.
 
 ## Name the NPCs
 
@@ -21,17 +21,20 @@ Requirements: Node.js 20 or newer.
 ```bash
 npm install
 npm run dev          # http://localhost:5173 (reachable from your phone on the same Wi-Fi)
-npm test             # 84 unit tests: maths, finance and life engine, tax, collision, navigation, agents, saving
+npm test             # 86 unit tests: maths, finance and life engine, tax, collision, navigation, agents, saving
 npm run build        # produces the single-file dist/index.html
 python3 tests/playtest.py file://$PWD/dist/index.html ./shots   # headless browser playtest (needs Playwright)
 ```
 
 ## What's inside
 
-A 9 × 9 block city with 22 working buildings, a business district, lake, stadium, homes, parks and a bazaar; traffic that keeps left and brakes for people; 21 named agents who answer typed money questions offline, led by Parth with Aanya at the central fountain; and a ₹10,00,000 virtual wallet.
+A 13 × 13 block city (about 660 m across) with AccoFinTra Tower at the centre where you spawn, a business district, two lakes, a stadium, homes, parks and a bazaar. Every landmark has its own design: the glass AccoFinTra Tower with its logo, a tall exchange tower with a bronze bull (inspired by Mumbai's historic exchange building), a classical domed bank, a glass car showroom, a fashion boutique with mannequins, a supermarket with parking, a petrol and EV station, and your own house with a garage.
 
-Every building does something real:
-Stock Exchange (shares, ETFs), Bond Market (G-Secs, T-bills, rated corporate bonds with defaults), Derivatives Exchange (paper futures and options, gated by a risk course), Commodities (digital gold and silver, Sovereign Gold Bonds), Research Centre (quarterly results, analyst views, IPOs with lottery allotment), Bank (savings, UPI and debit, credit card with statements and autopay, FDs, RDs, loans priced by credit score), Credit Bureau (300 to 900 score built from your history), Mutual Fund Centre (funds, SIPs), FinTech Hub (simulated KYC and UPI, scam and link safety labs), Academy (8 courses with quizzes and certificates), Insurance (term, health, motor with zero-dep; random life events test your cover), Retirement (EPF from salary, NPS, annuities), Real Estate (buy with RBI loan-to-value rules and stamp duty, rent, REITs), Government Savings (PPF, NSC, SCSS, SSY), Tax Office (FY 2026-27 slabs, both regimes, return filing with TDS, capital gains statement), Job Centre (8 jobs, payslips with PF, TDS and professional tax), SuperMart (grocery plans and monthly bills), FinVora Fuels (petrol, CNG, EV charging; vehicles use fuel as you drive), Motors showroom, Style Studio, Calculator Centre and AccoFinTra Tower (investor relations, AGM letter, careers, logo on the tower).
+Walk-in interiors with counters, token numbers and staff: AccoFinTra Tower (16 counters for funds, SIPs, bonds and derivatives, gold, research and IPOs, small savings, insurance, retirement, tax, property, jobs, credit bureau, FinTech and cyber safety, the academy, calculators and investor relations), FinVora Bank (accounts and cards, deposits, loans, manager), the Stock Exchange trading hall (share trading, ETFs, listings and IPOs, a giant index board and ticker ribbon) and your home (laptop, wardrobe, bed, TV, garage). Named agents serve at their counters from 9 am to 6 pm and walk the city after hours; a desk team covers the rest of the day.
+
+21 named agents led by Parth, with Aanya, greet you in front of the tower. Traffic keeps left; city buses stop at 7 shelters (₹10 to ₹30) and you can call an auto-rickshaw from the phone (meter fare). Trading follows market hours (9:15 am to 3:30 pm on weekdays, after-market orders otherwise) with realistic charges (brokerage, STT, exchange and SEBI fees, stamp duty, GST, DP). Every IPO is a newly invented fictional company.
+
+Plus everything from earlier rounds: jobs and salary, credit card and credit score, bonds, gold, F&O paper trading, insurance with life events, property and REITs, tax filing, the phone, vehicles with fuel, and clothes.
 
 Controls on PC: click once for mouse look, WASD to move, E to interact, Up arrow or T for the phone, Down arrow or Backspace to go back, P for the portfolio, M for the map, Esc to free the cursor.
 

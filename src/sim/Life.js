@@ -77,7 +77,7 @@ export const JOBS = [
   { id: 'retail', title: 'Store Associate', employer: 'FinVora SuperMart', gross: 22000, needs: [], desc: 'Entry-level salaried job with PF.' },
   { id: 'teacher', title: 'School Teacher', employer: 'FinVora Public School', gross: 42000, needs: [], desc: 'Steady salary and PF.' },
   { id: 'nurse', title: 'Staff Nurse', employer: 'Star Pharma Hospital', gross: 45000, needs: [], desc: 'Shift work, steady salary and PF.' },
-  { id: 'bank', title: 'Bank Officer', employer: 'JP Mojidra Bank', gross: 52000, needs: ['banking'], desc: 'Needs the Banking and Credit certificate from the Academy.' },
+  { id: 'bank', title: 'Bank Officer', employer: 'JP Mojidra Bank', gross: 52000, needs: ['banking'], desc: 'Needs the Banking and Credit certificate from the Academy counter in AccoFinTra Tower.' },
   { id: 'developer', title: 'Software Developer', employer: 'Mojidra Tech', gross: 110000, needs: ['money'], desc: 'High salary. Needs the Money Basics certificate.' },
   { id: 'analyst', title: 'Financial Analyst', employer: 'AccoFinTra', gross: 95000, needs: ['investing', 'funds'], desc: 'Research job at AccoFinTra Tower. Needs Investing Basics and Mutual Funds certificates.' },
   { id: 'manager', title: 'Operations Manager', employer: 'Mama Motors', gross: 140000, needs: ['money', 'tax'], desc: 'Senior role. Needs Money Basics and Tax Basics certificates.' },
@@ -112,8 +112,9 @@ export const HOME_LOAN = { rate: 0.085, maxMonths: 360 };
 export const ltvMax = (price) => (price <= 3000000 ? 0.9 : price <= 7500000 ? 0.8 : 0.75); // RBI loan-to-value caps
 
 export const LIFESTYLES = { basic: { name: 'Basic', groceries: 4500 }, standard: { name: 'Standard', groceries: 7500 }, premium: { name: 'Premium', groceries: 12000 } };
-const IPO_NAMES = [['Lakeview Logistics', 'Logistics'], ['Navya Green Power', 'Renewable energy'], ['Kaveri Agro Organics', 'Agriculture'], ['Tarang Payments', 'Fintech'],
-  ['Vistaar Care Hospitals', 'Healthcare'], ['Aarohi Textiles', 'Textiles'], ['Nimbus Data Centres', 'Technology'], ['Konkan Coast Ports', 'Infrastructure']];
+// IPO names are invented fresh every time from these parts (all fictional; never repeated in a save).
+const IPO_PRE = ['Aarav', 'Shivam', 'Navya', 'Kaveri', 'Tarang', 'Vistaar', 'Nimbus', 'Konkan', 'Sahyog', 'Pragati', 'Indravati', 'Saffron', 'Meru', 'Ganga', 'Narmada', 'Vayu', 'Agni', 'Prithvi', 'Akash', 'Sarthi', 'Anant', 'Utkarsh', 'Samarth', 'Disha', 'Lakshya', 'Varun', 'Sanjivani', 'Kalpa', 'Tapti', 'Nilgiri', 'Aravali', 'Sahyadri', 'Chinar', 'Kesari', 'Mayur', 'Neelkanth', 'Pushpak', 'Rudra', 'Shaurya', 'Vihaan'];
+const IPO_SECTORS = [['Logistics', 'Logistics'], ['Green Power', 'Renewable energy'], ['Agro Foods', 'Agriculture'], ['Payments', 'Fintech'], ['Care Hospitals', 'Healthcare'], ['Textiles', 'Textiles'], ['Data Centres', 'Technology'], ['Ports', 'Infrastructure'], ['Housing Finance', 'Financial services'], ['Lifesciences', 'Pharmaceuticals'], ['EV Motors', 'Automobiles'], ['Cement', 'Materials'], ['Retail', 'Consumer'], ['Softworks', 'Technology'], ['Solar', 'Renewable energy'], ['Speciality Chemicals', 'Chemicals'], ['Steel Tubes', 'Metals'], ['Snacks and Foods', 'FMCG'], ['Air Cargo', 'Aviation'], ['Hotels and Resorts', 'Hospitality'], ['Microfinance', 'Financial services'], ['Defence Systems', 'Capital goods'], ['Electronics', 'Electronics manufacturing'], ['Gaming', 'Media']];
 const DIV_MONTH = { AFT: 7, STR: 6, JPM: 5, MMA: 6, SMNI: 8, MJDR: 9 }; // record date: 15th of this month (0 = Jan)
 
 // ---------------------------------------------------------------- maths
@@ -150,6 +151,33 @@ export function slabTaxOld(income, age = 30) {
   return income <= 500000 ? 0 : tax;
 }
 
+
+// ---------------------------------------------------------------- city life (round 10): gym, hospital, pharmacy, school, gadgets
+export const GYM_PLANS = { monthly: { name: 'Monthly', price: 1800, days: 30 }, quarterly: { name: 'Quarterly', price: 4800, days: 91 }, annual: { name: 'Annual', price: 14000, days: 365 } };
+export const HOSPITAL = {
+  opd: { name: 'Doctor consultation (OPD)', price: 800, covered: false, note: 'Outpatient consultations are usually not covered by a basic health policy.' },
+  checkup: { name: 'Full-body health check-up', price: 3200, covered: 'checkup', note: 'Many health policies include one free preventive check-up a year.' },
+  daycare: { name: 'Day-care procedure (minor surgery)', price: 38000, covered: true, note: 'Covered by health insurance after the 30-day waiting period, up to your cover.' },
+};
+export const MEDICINES = [
+  { id: 'fever', name: 'Fever and pain tablets (strip of 15)', branded: 45, generic: 12 },
+  { id: 'bp', name: 'Blood-pressure tablets, one month', branded: 620, generic: 140 },
+  { id: 'vit', name: 'Vitamin D3 capsules, 8 weeks', branded: 380, generic: 110 },
+  { id: 'cough', name: 'Cough syrup 100 ml', branded: 135, generic: 60 },
+];
+export const DIPLOMAS = [
+  { id: 'dfp', name: 'Diploma in Financial Planning', fee: 60000, months: 6, skill: 'Plan budgets, insurance and investments for families.' },
+  { id: 'dda', name: 'Diploma in Data Analytics', fee: 90000, months: 9, skill: 'Spreadsheets, SQL and dashboards for business.' },
+  { id: 'cbm', name: 'Certificate in Small Business Management', fee: 45000, months: 4, skill: 'Costing, GST basics and running a shop.' },
+];
+export const EDU_LOAN = { rate: 0.105, months: 24 };
+export const GADGETS = [
+  { id: 'phone', name: 'Nova X5 smartphone', price: 32000 },
+  { id: 'laptop', name: 'Nova Book 14 laptop', price: 68000 },
+  { id: 'tv', name: 'Nova Vision 55-inch TV', price: 46000 },
+];
+export const NO_COST_EMI = { months: 6, fee: 199, cashDiscount: 0.075, gst: 0.18, hiddenRate: 0.15 };
+
 // ---------------------------------------------------------------- the mixin
 export const LIFE_METHODS = {
   _initLife() {
@@ -170,6 +198,7 @@ export const LIFE_METHODS = {
     L.divs ||= []; L.agm ??= null;
     L.certs ||= {}; L.annuities ||= [];
     L.lifestyle ||= 'standard'; L.alerts ||= []; L.events ||= [];
+    L.gym ??= null; L.diplomas ||= []; L.checkups ||= {};
     if (!Object.keys(L.results).length) for (const c of COMPANIES) L.results[c.symbol] = [{ q: 'FY26 Q4', revenue: r2(c.revenue / 4), profit: r2(c.profit / 4), growth: 0, date: this.start }];
     for (const g of this.garage || []) g.fuel ??= 0.6;
   },
@@ -191,7 +220,7 @@ export const LIFE_METHODS = {
       else { c.balance = r2(c.balance + amount); c.unbilled = r2((c.unbilled || 0) + amount); this._log({ type, asset: 'card', name: `${what} (credit card)`, amount: 0, note: `₹${amount.toLocaleString('en-IN')} added to your card bill` }); return 'card'; }
     }
     if (method === 'upi') {
-      if (!this.life.kyc) { if (!force) throw new FinError('Set up UPI at the FinTech Hub first (KYC needed).'); method = 'debit'; }
+      if (!this.life.kyc) { if (!force) throw new FinError('Set up UPI at the FinTech counter in AccoFinTra Tower first (KYC needed).'); method = 'debit'; }
       else {
         const u = this.life.upiDay; if (u.date !== this.date) { u.date = this.date; u.spent = 0; }
         if (u.spent + amount > 100000) { if (!force) throw new FinError('UPI limit is ₹1,00,000 a day. Use a debit card for this payment.'); method = 'debit'; }
@@ -215,9 +244,11 @@ export const LIFE_METHODS = {
     this._alert(`Your wallet ran out paying ${what}. An emergency loan of ₹${Math.round(short).toLocaleString('en-IN')} at 16% was taken.`, 'bad');
     return 'loan';
   },
+  /** Bus tickets and rickshaw fares. */
+  travel(amount, what, { force = false } = {}) { return this._spend(amount, what, { type: 'travel', asset: 'travel', force }); },
   setPayMethod(m) {
     if (!['upi', 'debit', 'card'].includes(m)) throw new FinError('Unknown payment method.');
-    if (m === 'upi' && !this.life.kyc) throw new FinError('Complete KYC and set up UPI at the FinTech Hub first.');
+    if (m === 'upi' && !this.life.kyc) throw new FinError('Complete KYC and set up UPI at the FinTech counter in AccoFinTra Tower first.');
     if (m === 'card' && this.life.card?.status !== 'active') throw new FinError('Get a credit card at the Bank first.');
     this.life.payMethod = m;
   },
@@ -239,7 +270,7 @@ export const LIFE_METHODS = {
     const j = jobById[id]; if (!j) throw new FinError('Unknown job.');
     if (this.life.job?.id === id) throw new FinError('You already work here.');
     const miss = j.needs.filter((c) => !this.life.certs[c]);
-    if (miss.length) throw new FinError(`This job needs: ${miss.map((c) => courseById[c].title).join(', ')}. Earn the certificates at the Financial Academy.`);
+    if (miss.length) throw new FinError(`This job needs: ${miss.map((c) => courseById[c].title).join(', ')}. Earn the certificates at the Academy counter in AccoFinTra Tower.`);
     if (this.life.job) this.life.jobHistory.push({ ...this.life.job, left: this.date });
     this.life.job = { id, gross: j.gross, start: this.date, paidUpTo: this.date, raises: 0 };
     this.life.unemployedSince = null;
@@ -298,7 +329,7 @@ export const LIFE_METHODS = {
     return a;
   },
   buyAnnuity(amount) {
-    if ((this.declaredAge ?? 0) < 60) throw new FinError('Annuities here are for age 60 and above. Set your simulation age at the Government Savings Office.');
+    if ((this.declaredAge ?? 0) < 60) throw new FinError('Annuities here are for age 60 and above. Set your simulation age at the Small Savings counter in AccoFinTra Tower.');
     if (amount < 100000) throw new FinError('Minimum annuity purchase is ₹1,00,000.');
     const a = this._debit(amount, 'annuity'); return this._startAnnuity(a, 'a lump sum');
   },
@@ -501,7 +532,7 @@ export const LIFE_METHODS = {
   },
   fnoStrikes(u) { const f = FNO.find((x) => x.u === u), S = this.fnoSpot(u), atm = Math.round(S / f.step) * f.step; return [-2, -1, 0, 1, 2].map((k) => atm + k * f.step); },
   openFno({ u, type, side = 'long', strike = null, lots = 1 }) {
-    if (!this.life.certs.derivatives) throw new FinError('Pass the Derivatives Risk course at the Financial Academy first. Brokers make you read a risk disclosure too.');
+    if (!this.life.certs.derivatives) throw new FinError('Pass the Derivatives Risk course at the Academy counter in AccoFinTra Tower first. Brokers make you read a risk disclosure too.');
     const f = FNO.find((x) => x.u === u); if (!f) throw new FinError('Unknown contract.');
     if (!Number.isInteger(lots) || lots < 1 || lots > 10) throw new FinError('1 to 10 lots.');
     if (type !== 'fut' && side !== 'long') throw new FinError('Selling options has unlimited risk and is not allowed in FinVora.');
@@ -682,6 +713,79 @@ export const LIFE_METHODS = {
   },
 
   // ---------------------------------------------------------- daily life: bills, groceries, fuel
+  // ---------------------------------------------------------- city life: gym, hospital, pharmacy, school, gadgets
+  gymJoin(plan) {
+    const p = GYM_PLANS[plan]; if (!p) throw new FinError('Unknown plan.');
+    if (this.gymActive()) throw new FinError(`Your ${this.life.gym.planName} plan runs until ${this.life.gym.until}.`);
+    this._spend(p.price, `FinVora Fit ${p.name.toLowerCase()} membership`, { type: 'spend', asset: 'gym' });
+    this.life.gym = { plan, planName: p.name, paid: p.price, since: this.date, until: addDays(this.date, p.days), visits: 0 };
+    return this.life.gym;
+  },
+  gymActive() { const g = this.life.gym; return !!g && this.date <= g.until; },
+  gymVisit() {
+    if (!this.gymActive()) throw new FinError('No active membership. Pick a plan first.');
+    const g = this.life.gym; if (g.lastVisit === this.date) throw new FinError('One visit a day counts. Come back tomorrow!');
+    g.visits++; g.lastVisit = this.date; return r2(g.paid / g.visits);
+  },
+  /** A hospital service. Health insurance pays what the policy covers; the rest comes from you. */
+  hospitalVisit(kind) {
+    const h = HOSPITAL[kind]; if (!h) throw new FinError('Unknown service.');
+    const pol = this.life.policies.find((p) => p.kind === 'health' && p.active);
+    let covered = 0, why = pol ? 'not covered by your policy' : 'no health insurance';
+    if (pol && h.covered === 'checkup') {
+      const yr = fyOf(this.date);
+      if (this.life.checkups[pol.id] === yr) why = 'free check-up already used this year';
+      else { covered = h.price; this.life.checkups[pol.id] = yr; why = 'free annual check-up on your policy'; }
+    } else if (pol && h.covered === true) {
+      if (daysBetween(pol.start, this.date) < 30) why = 'policy still in its 30-day waiting period';
+      else { if (daysBetween(pol.yearStart, this.date) >= 365) { pol.yearStart = this.date; pol.used = 0; } covered = Math.min(h.price, pol.cover - pol.used); pol.used += covered; pol.claims++; why = covered < h.price ? 'cover used up for this year' : 'cashless claim approved'; }
+    }
+    const pay = r2(h.price - covered);
+    if (pay > 0) this._spend(pay, h.name, { type: 'spend', asset: 'health' });
+    this._log({ type: 'event', asset: 'insurance', name: `${h.name}: bill ₹${h.price.toLocaleString('en-IN')}`, amount: 0, note: covered ? `Health insurance paid ₹${covered.toLocaleString('en-IN')} (${why}).` : `Paid by you (${why}).` });
+    return { bill: h.price, covered, paid: pay, why };
+  },
+  buyMedicine(id, generic) {
+    const m = MEDICINES.find((x) => x.id === id); if (!m) throw new FinError('Unknown medicine.');
+    const price = generic ? m.generic : m.branded;
+    this._spend(price, `${m.name} (${generic ? 'generic' : 'branded'})`, { type: 'spend', asset: 'health' });
+    return { price, saved: generic ? m.branded - m.generic : 0 };
+  },
+  enrolDiploma(id, mode) {
+    const d = DIPLOMAS.find((x) => x.id === id); if (!d) throw new FinError('Unknown course.');
+    if (this.life.diplomas.some((x) => x.id === id)) throw new FinError('You are already enrolled in this course.');
+    let loan = null;
+    if (mode === 'loan') {
+      const sc = this.creditScore().score; if (sc !== null && sc < 600) throw new FinError(`Education loan declined: credit score ${sc}.`);
+      loan = this._newLoan(d.fee, EDU_LOAN.rate, EDU_LOAN.months, 'education');
+      this._log({ type: 'loan', asset: 'loan', code: loan.id, name: `Education loan for ${d.name}`, amount: 0, note: `₹${d.fee.toLocaleString('en-IN')} paid to the college by the bank. EMI ₹${Math.round(loan.emi).toLocaleString('en-IN')} for ${EDU_LOAN.months} months at ${(EDU_LOAN.rate * 100).toFixed(1)}%.` });
+    } else if (mode === 'full') this._spend(d.fee, `${d.name} fee`, { type: 'spend', asset: 'education' });
+    else throw new FinError('Choose how to pay.');
+    const rec = { id, name: d.name, start: this.date, ends: addMonths(this.date, d.months), loan: loan?.id || null };
+    this.life.diplomas.push(rec);
+    return rec;
+  },
+  /** Gadget price quotes: paying in full earns a cash discount that "no-cost EMI" quietly gives up. */
+  gadgetQuote(id) {
+    const g = GADGETS.find((x) => x.id === id); if (!g) throw new FinError('Unknown product.');
+    const E = NO_COST_EMI, full = r2(g.price * (1 - E.cashDiscount));
+    const interestInside = r2(g.price * E.hiddenRate * (E.months + 1) / 24); // interest the brand pays the lender, waived as a "discount"
+    const emiTotal = r2(g.price + E.fee * (1 + E.gst) + interestInside * E.gst);
+    return { g, full, emiTotal, monthly: r2(g.price / E.months), extra: r2(emiTotal - full), fee: E.fee, gstOnInterest: r2(interestInside * E.gst) };
+  },
+  buyGadget(id, mode) {
+    const q = this.gadgetQuote(id), E = NO_COST_EMI;
+    if (mode === 'full') { this._spend(q.full, `${q.g.name} (paid in full, ${E.cashDiscount * 100}% off)`, { type: 'spend', asset: 'shopping' }); return { paid: q.full }; }
+    if (mode === 'emi') {
+      if (!this.life.card || this.life.card.status !== 'active') throw new FinError('No-cost EMI needs a credit card. Get one at FinVora Bank.');
+      const upfront = r2(E.fee * (1 + E.gst) + q.gstOnInterest);
+      this._spend(upfront, `No-cost EMI processing fee and GST for ${q.g.name}`, { method: 'card', type: 'spend', asset: 'shopping' });
+      const loan = this._newLoan(q.g.price, 0, E.months, 'consumer');
+      this._log({ type: 'loan', asset: 'loan', code: loan.id, name: `No-cost EMI: ${q.g.name}`, amount: 0, note: `${E.months} EMIs of ₹${Math.round(loan.emi).toLocaleString('en-IN')}. You gave up the ₹${Math.round(q.g.price - q.full).toLocaleString('en-IN')} cash discount.` });
+      return { paid: upfront, loan };
+    }
+    throw new FinError('Choose how to pay.');
+  },
   setLifestyle(k) { if (!LIFESTYLES[k]) throw new FinError('Unknown plan.'); this.life.lifestyle = k; },
   shop(item, amount) { if (!(amount > 0)) throw new FinError('Nothing to buy.'); return this._spend(amount, item, { type: 'spend', asset: 'shopping' }); },
   _bills(d, dom, mon) {
@@ -736,7 +840,7 @@ export const LIFE_METHODS = {
         s.price = r2(s.price * (1 + jump)); s.hist[s.hist.length - 1] = s.price;
         this.market.news.push({ date: d, sym: c.symbol, kind: 'company', move: jump, text: `${c.name} ${qn} results: profit ${surprise >= 0 ? 'beat' : 'missed'} estimates; shares ${jump >= 0 ? 'rose' : 'fell'} ${Math.abs(jump * 100).toFixed(1)}%` });
       }
-      this._alert('Quarterly results are out. See the Investment Research Centre.');
+      this._alert('Quarterly results are out. See the Research counter in AccoFinTra Tower.');
     }
     // dividends on the 15th of each company's record month
     if (dom === 15) for (const c of COMPANIES) if (DIV_MONTH[c.symbol] === mon && c.divYield) {
@@ -753,11 +857,11 @@ export const LIFE_METHODS = {
   _ipoDay(d) {
     const L = this.life;
     if (!L.ipo && d >= L.nextIpo) {
-      const [name, sector] = IPO_NAMES[L.ipoCount % IPO_NAMES.length]; L.ipoCount++;
+      const { name, sector } = this._ipoName(); L.ipoCount++;
       const hi = Math.round((80 + this._rand() * 420) / 5) * 5, lo = Math.round(hi * 0.95), lot = Math.max(10, Math.round(15000 / hi));
       const open = addDays(d, 3), close = addDays(open, 2);
       L.ipo = { id: `IPO${L.ipoCount}`, name, sector, band: [lo, hi], lot, open, close, allot: addDays(close, 1), list: addDays(close, 3), status: 'upcoming', sub: null, applied: null, quality: this._gauss() };
-      this._alert(`${name} IPO opens ${open}. Price band ₹${lo} to ₹${hi}. Details at the Research Centre.`);
+      this._alert(`${name} IPO opens ${open}. Price band ₹${lo} to ₹${hi}. Details at the Research counter in AccoFinTra Tower.`);
     }
     const I = L.ipo; if (!I) return;
     if (I.status === 'upcoming' && d >= I.open) I.status = 'open';
@@ -780,10 +884,20 @@ export const LIFE_METHODS = {
     }
     if (isWeekday(d)) for (const h of L.ipoHold) { h.price = r2(h.price * Math.exp(this._gauss() * h.vol / Math.sqrt(252))); h.hist.push(h.price); if (h.hist.length > 120) h.hist.shift(); }
   },
+  /** A brand-new fictional company name for every IPO. */
+  _ipoName() {
+    const used = (this.life.ipoUsed ||= []);
+    for (let k = 0; k < 200; k++) {
+      const p = IPO_PRE[Math.floor(this._rand() * IPO_PRE.length)], [sec, sector] = IPO_SECTORS[Math.floor(this._rand() * IPO_SECTORS.length)];
+      const name = `${p} ${sec} Ltd`;
+      if (!used.includes(name)) { used.push(name); if (used.length > 300) used.shift(); return { name, sector }; }
+    }
+    return { name: `FinVora Listing ${used.length + 1} Ltd`, sector: 'Diversified' };
+  },
   applyIPO(lots) {
     const I = this.life.ipo; if (!I || I.status !== 'open') throw new FinError('No IPO is open right now.');
     if (I.applied) throw new FinError('You have already applied.');
-    if (!this.life.kyc) throw new FinError('IPO bids need KYC and UPI. Set them up at the FinTech Hub.');
+    if (!this.life.kyc) throw new FinError('IPO bids need KYC and UPI. Set them up at the FinTech counter in AccoFinTra Tower.');
     if (!Number.isInteger(lots) || lots < 1 || lots * I.lot * I.band[1] > 200000) throw new FinError('Retail investors can bid up to ₹2,00,000.');
     const amount = this._debit(lots * I.lot * I.band[1], 'IPO bid');
     I.applied = { lots, amount };
@@ -885,7 +999,7 @@ export const LIFE_METHODS = {
     if (mon === 2 && dom === 31 && L.epf.accrued > 0) { const i = r2(L.epf.accrued); L.epf.balance = r2(L.epf.balance + i); L.epf.accrued = 0; this._log({ type: 'epf-interest', asset: 'epf', name: 'EPF interest credited (8.25%)', amount: 0, note: `₹${i} added to your EPF account` }); }
     for (const a of L.annuities) if (dom === 1 && d > a.start) { this._credit(a.monthly); this._log({ type: 'annuity-pay', asset: 'annuity', code: a.id, name: 'Monthly pension (annuity)', amount: a.monthly }); }
     if (dom === 1) { const s = this.creditScore().score; if (s !== null) { L.scoreHist.push({ date: d, score: s }); if (L.scoreHist.length > 36) L.scoreHist.shift(); } }
-    if (dom === 1 && mon === 3) { const prev = fyOf(addDays(d, -1)); if (!L.filed[prev] && (L.fy[prev]?.salary || L.fy[prev]?.gig)) this._alert(`FY ${prev} has ended. File your income tax return at the Tax Office by 31 July.`); }
+    if (dom === 1 && mon === 3) { const prev = fyOf(addDays(d, -1)); if (!L.filed[prev] && (L.fy[prev]?.salary || L.fy[prev]?.gig)) this._alert(`FY ${prev} has ended. File your income tax return at the Tax Desk in AccoFinTra Tower by 31 July.`); }
   },
 
   /** Extra assets and liabilities for the net worth view. */

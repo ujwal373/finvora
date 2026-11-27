@@ -9,6 +9,7 @@ import { CARS, PAINTS, CLOTHES, CLOTH_COLORS, CAR_LOAN, INSURANCE_PCT, carValue,
 import { emiOf } from '../sim/calculators.js';
 import { SIM_NOTE, cls, num, act, live } from './svcutil.js';
 import { LIFE_FACTORIES, LIFE_TITLES } from './LifeServices.js';
+import { CITY_FACTORIES, CITY_TITLES } from './CityServices.js';
 export { SIM_NOTE };
 
 // Working features inside buildings. Each factory returns { title, node, destroy }.
@@ -29,7 +30,7 @@ export const SERVICE_TITLES = {
   'trade-stocks': 'Trade shares', 'trade-etfs': 'Trade ETFs', 'market-board': 'Market board', 'commodity-board': 'Commodity prices',
   'company-research': 'Company research', 'mf-invest': 'Invest in funds', 'mf-sip': 'SIPs', 'bank-deposits': 'FDs and RDs', 'bank-loans': 'Loans',
   'interest-wall': 'Interest Wall', 'doubling-lab': 'Doubling Lab', journal: 'Knowledge Journal', 'govt-schemes': 'Small savings schemes', nps: 'NPS',
-  ...LIFE_TITLES, 'holding-periods': 'Holding period checker', 'car-showroom': 'Vehicles', 'clothing-store': 'Clothing and accessories', 'scam-lab': 'Scam-spotting lab', 'all-calcs': 'All calculators',
+  ...LIFE_TITLES, ...CITY_TITLES, 'holding-periods': 'Holding period checker', 'car-showroom': 'Vehicles', 'clothing-store': 'Clothing and accessories', 'scam-lab': 'Scam-spotting lab', 'all-calcs': 'All calculators',
 };
 export const serviceTitle = (id) => (id.startsWith('calc:') ? calcById[id.slice(5)]?.title : SERVICE_TITLES[id]) || id;
 
@@ -57,11 +58,13 @@ function tradeList(ctx, kind) {
       <div class="order"><label class="fw-label" for="qty">Quantity (whole units)</label>
         <div class="order-row"><input id="qty" class="fw-input" type="number" min="1" step="1" value="1" inputmode="numeric"><button class="fw-btn green" data-buy>Buy</button><button class="fw-btn" data-sell ${q ? '' : 'disabled'}>Sell</button></div>
         <div class="muted small" data-est></div></div>
-      <div class="muted small">Cash available ${formatINR(ctx.fin.cash)} · Orders fill instantly at the simulated price. No brokerage or taxes are charged in FinVora.</div>`;
-    const qty = $(node, '#qty'), est = () => { $(node, '[data-est]').textContent = `Order value ≈ ${formatINR2((parseInt(qty.value, 10) || 0) * price)}`; };
+      <div class="muted small">Cash available ${formatINR(ctx.fin.cash)} · ${ctx.fin.marketOpen() ? '<span class="up">Market open</span> until 3:30 pm: orders fill at the simulated price.' : '<span class="down">Market closed</span> (open 9:15 am to 3:30 pm, Monday to Friday): orders are kept as after-market orders and run at the next open.'} Every trade pays realistic charges: brokerage (₹20 or 0.1%, illustrative), STT 0.1%, exchange and SEBI fees, stamp duty on buys, 18% GST and a DP charge on sells.</div>
+      ${(ctx.fin.amo || []).length ? `<div class="section-h">After-market orders</div>${ctx.fin.amo.map((o) => `<div class="news">${o.side.toUpperCase()} ${o.qty} × ${o.code} · placed ${o.placed} <button class="fw-btn sm" data-cancel-amo="${o.id}">Cancel</button></div>`).join('')}` : ''}`;
+    $$(node, '[data-cancel-amo]').forEach((b) => b.addEventListener('click', () => act(ctx, () => ctx.fin.cancelAMO(b.dataset.cancelAmo), 'Order cancelled') && render()));
+    const qty = $(node, '#qty'), est = () => { const v = (parseInt(qty.value, 10) || 0) * price, b = ctx.fin.tradeCharges('buy', v, kind), s2 = ctx.fin.tradeCharges('sell', v, kind); $(node, '[data-est]').textContent = `Order value ≈ ${formatINR2(v)} · buy charges ${formatINR2(b.total)} · sell charges ${formatINR2(s2.total)}`; };
     qty.addEventListener('input', est); est();
-    $(node, '[data-buy]').addEventListener('click', () => act(ctx, () => ctx.fin.buyShares(sel, parseInt(qty.value, 10)), `Bought ${qty.value} ${sel}`) && render());
-    $(node, '[data-sell]').addEventListener('click', () => act(ctx, () => ctx.fin.sellShares(sel, parseInt(qty.value, 10)), `Sold ${qty.value} ${sel}`) && render());
+    $(node, '[data-buy]').addEventListener('click', () => act(ctx, () => ctx.fin.buyShares(sel, parseInt(qty.value, 10)), (r) => (r?.amo ? `Market closed: after-market order placed to buy ${qty.value} ${sel}` : `Bought ${qty.value} ${sel} (charges ${formatINR2(r.charges)})`)) && render());
+    $(node, '[data-sell]').addEventListener('click', () => act(ctx, () => ctx.fin.sellShares(sel, parseInt(qty.value, 10)), (r) => (r?.amo ? `Market closed: after-market order placed to sell ${qty.value} ${sel}` : `Sold ${qty.value} ${sel} (charges ${formatINR2(r.charges)})`)) && render());
   };
   render();
   return { node, destroy: live(ctx, node, render) };
@@ -303,7 +306,7 @@ function holdingPeriods(ctx) {
       }
     }
     node.innerHTML = `<div class="fw-msg info" style="margin-top:0">Listed shares and equity funds held over 12 months: long-term gains above ₹1.25 lakh a year taxed at 12.5%. Held 12 months or less: short-term gains taxed at 20%. Budget 2026 kept these rates for FY 2026-27. FinVora money is virtual, so nothing here is actually taxed.</div>
-      ${rows.length ? `<div class="tbl-wrap"><table class="board"><thead><tr><th>Code</th><th>Bought</th><th class="r">Days held</th><th class="r">Unrealised gain</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<div class="muted">You have no holdings yet. Buy shares at the Stock Exchange or funds at the Mutual Fund Centre.</div>'}`;
+      ${rows.length ? `<div class="tbl-wrap"><table class="board"><thead><tr><th>Code</th><th>Bought</th><th class="r">Days held</th><th class="r">Unrealised gain</th><th>Status</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<div class="muted">You have no holdings yet. Buy shares at the Stock Exchange or funds at the Mutual Funds counter in AccoFinTra Tower.</div>'}`;
   };
   render();
   return { node, destroy: live(ctx, node, render) };
@@ -461,6 +464,7 @@ function clothingStore(ctx) {
 
 const FACTORIES = {
   ...LIFE_FACTORIES,
+  ...CITY_FACTORIES,
   'car-showroom': carShowroom,
   'clothing-store': clothingStore,
   'trade-stocks': (ctx) => tradeList(ctx, 'stock'),

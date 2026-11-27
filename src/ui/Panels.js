@@ -44,7 +44,7 @@ export class Panels {
       <div class="menu-tabs" data-tabs>${b.services.map((id, i) => `<button data-t="${i}">${esc(serviceTitle(id))}</button>`).join('')}</div>
       <div class="panel-body">
         <div data-svc></div>
-        ${b.desk || helpers.length ? `<div class="section-h">People here</div><div class="chips" data-people>${b.desk ? '<button class="chip" data-desk>Help desk</button>' : ''}${helpers.map((h) => `<button class="chip" data-h="${h.id}">${esc(h.name)}${h.name !== h.role ? ` · ${esc(h.role)}` : ''} ⌖</button>`).join('')}</div>` : ''}
+        ${b.desk || helpers.length ? `<div class="section-h">People here</div><div class="chips" data-people>${b.desk ? '<button class="chip" data-desk>Help desk</button>' : ''}${helpers.map((h) => `<button class="chip" data-h="${h.id}">${b.counter ? 'Talk to ' : ''}${esc(h.name)}${h.name !== h.role ? ` · ${esc(h.role)}` : ''} ${b.counter ? '💬' : '⌖'}</button>`).join('')}</div>` : ''}
         <div class="disclaimer">FinVora is an educational simulation. All money is virtual and every price is simulated. Your transaction history is permanent: it cannot be edited or deleted. Nothing here is financial advice.</div>
       </div>
     </div>`);
@@ -66,6 +66,16 @@ export class Panels {
     if (b.desk) $(inner, '[data-desk]').addEventListener('click', () => { this.close(); onTalkDesk(b); });
     $$(inner, '[data-h]').forEach((x) => x.addEventListener('click', () => { this.close(); onFindHelper(x.dataset.h); }));
     show(Math.min(startTab, b.services.length - 1));
+  }
+
+  /** A simple list of choices (bus destinations and similar). */
+  choice({ title, sub = '', options, onPick, onClose }) {
+    const inner = el(`<div style="display:contents">
+      <div class="panel-head"><div><div class="panel-title">${esc(title)}</div><div class="muted small">${esc(sub)}</div></div><button class="close-x" data-close>✕</button></div>
+      <div class="panel-body"><div class="pick">${options.map((o) => `<button class="pick-row" data-v="${esc(o.value)}" ${o.disabled ? 'disabled' : ''}><span><b>${esc(o.label)}</b><small>${esc(o.sub || '')}</small></span><span class="r">›</span></button>`).join('')}</div></div>
+    </div>`);
+    const m = this._modal(inner, { narrow: true, onClose });
+    $$(inner, '[data-v]').forEach((b) => b.addEventListener('click', () => { const v = b.dataset.v; const cb = m.onClose; m.onClose = null; this.close(); cb?.(); onPick(v); }));
   }
 
   // ---------------------------------------------------------------- portfolio
@@ -97,7 +107,7 @@ export class Panels {
           ${Object.entries(s.alloc).map(([k, v]) => `<div class="bar-row"><span>${k}</span><div class="bar"><i style="width:${(v / maxA * 100).toFixed(1)}%"></i></div><span class="mono">${formatINR(v)} · ${(v / s.assets * 100).toFixed(1)}%</span></div>`).join('')}
           <p class="small muted">XIRR is your annualised return across every investment cash flow and its date. Started with ${formatINR(1000000)} of virtual money on ${fin.start}.</p>`;
       } else if (tab === 1) {
-        body.innerHTML = s.rows.length ? `<div class="tbl-wrap"><table class="board"><thead><tr><th>Holding</th><th>Type</th><th class="r">Qty</th><th class="r">Cost</th><th class="r">Value</th><th class="r">P&L</th></tr></thead><tbody>${s.rows.map((r) => `<tr><td><b>${esc(r.code)}</b> <small>${esc(r.name)}</small></td><td>${esc(r.type)}</td><td class="r">${fmtNum(r.qty, r.type === 'stock' || r.type === 'etf' ? 0 : 3)}</td><td class="r">${formatINR(r.cost)}</td><td class="r">${formatINR(r.value)}</td><td class="r ${r.pl >= 0 ? 'up' : 'down'}">${formatINR(r.pl)} <small>(${fmtPct(r.cost ? r.pl / r.cost * 100 : 0, 1)})</small></td></tr>`).join('')}</tbody></table></div>` : '<div class="muted">No market holdings yet. Visit the Stock Exchange or the Mutual Fund Centre.</div>';
+        body.innerHTML = s.rows.length ? `<div class="tbl-wrap"><table class="board"><thead><tr><th>Holding</th><th>Type</th><th class="r">Qty</th><th class="r">Cost</th><th class="r">Value</th><th class="r">P&L</th></tr></thead><tbody>${s.rows.map((r) => `<tr><td><b>${esc(r.code)}</b> <small>${esc(r.name)}</small></td><td>${esc(r.type)}</td><td class="r">${fmtNum(r.qty, r.type === 'stock' || r.type === 'etf' ? 0 : 3)}</td><td class="r">${formatINR(r.cost)}</td><td class="r">${formatINR(r.value)}</td><td class="r ${r.pl >= 0 ? 'up' : 'down'}">${formatINR(r.pl)} <small>(${fmtPct(r.cost ? r.pl / r.cost * 100 : 0, 1)})</small></td></tr>`).join('')}</tbody></table></div>` : '<div class="muted">No market holdings yet. Visit the Stock Exchange or the Mutual Funds counter in AccoFinTra Tower.</div>';
         body.innerHTML += `<div class="section-h">Deposits, schemes and loans</div><div class="small">${[
           ...fin.fds.filter((x) => x.status === 'active').map((x) => `FD ${x.id}: ${formatINR(x.principal)} @ ${(x.rate * 100).toFixed(2)}%, matures ${x.maturity}`),
           ...fin.rds.filter((x) => x.status === 'active').map((x) => `RD ${x.id}: ${formatINR(x.installment)}/month, ${x.paid.length}/${x.months} paid`),
@@ -159,7 +169,7 @@ export class Panels {
     const draw = () => {
       g.fillStyle = '#1a2a1a'; g.fillRect(0, 0, W, W);
       g.fillStyle = '#2b2f36'; g.fillRect(tx(-CITY.bound + 1), tz(-CITY.bound + 1), (CITY.bound - 1) * 2 * s, (CITY.bound - 1) * 2 * s);
-      for (const bx of CITY.blocks) for (const bz of CITY.blocks) { const park = (bx === 0 && bz === 0) || DISTRICTS.parks.some(([x, z]) => x === bx && z === bz); const home = DISTRICTS.residential.some(([x, z]) => x === bx && z === bz); const biz = DISTRICTS.business.some(([x, z]) => x === bx && z === bz); const lake = DISTRICTS.lake.some(([x, z]) => x === bx && z === bz); g.fillStyle = lake ? '#2f6f94' : park ? '#36572f' : home ? '#4a4438' : biz ? '#3d4a5a' : '#3a3f47'; g.fillRect(tx(bx - 21.5), tz(bz - 21.5), 43 * s, 43 * s); const lbl = home ? 'HOMES' : biz ? 'OFFICES' : lake ? 'LAKE' : DISTRICTS.stadium.some(([x, z]) => x === bx && z === bz) ? 'STADIUM' : ''; if (lbl) { g.fillStyle = '#9b8f78'; g.font = `600 ${Math.max(8, s * 4)}px system-ui`; g.textAlign = 'center'; g.fillText(lbl, tx(bx), tz(bz)); } }
+      for (const bx of CITY.blocks) for (const bz of CITY.blocks) { const park = (bx === 0 && bz === 0) || (DISTRICTS.centralPark || []).some(([x, z]) => x === bx && z === bz) || DISTRICTS.parks.some(([x, z]) => x === bx && z === bz); const home = DISTRICTS.residential.some(([x, z]) => x === bx && z === bz); const biz = DISTRICTS.business.some(([x, z]) => x === bx && z === bz); const lake = DISTRICTS.lake.some(([x, z]) => x === bx && z === bz); g.fillStyle = lake ? '#2f6f94' : park ? '#36572f' : home ? '#4a4438' : biz ? '#3d4a5a' : '#3a3f47'; g.fillRect(tx(bx - 21.5), tz(bz - 21.5), 43 * s, 43 * s); const lbl = home ? 'HOMES' : biz ? 'OFFICES' : lake ? 'LAKE' : DISTRICTS.stadium.some(([x, z]) => x === bx && z === bz) ? 'STADIUM' : ''; if (lbl) { g.fillStyle = '#9b8f78'; g.font = `600 ${Math.max(8, s * 4)}px system-ui`; g.textAlign = 'center'; g.fillText(lbl, tx(bx), tz(bz)); } }
       g.fillStyle = '#e0b860'; g.font = `700 ${s * 3}px system-ui`; for (const [bx, bz] of DISTRICTS.bazaar) g.fillText('BAZAAR', tx(bx), tz(bz));
       for (const b of BUILDINGS) {
         g.textAlign = 'center'; g.textBaseline = 'middle';

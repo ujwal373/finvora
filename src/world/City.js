@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { CITY } from '../config.js';
-import { BUILDINGS, DISTRICTS, doorPoint } from '../data/buildings.js';
+import { BUILDINGS, DISTRICTS, BUS_STOPS, doorPoint } from '../data/buildings.js';
+import { createCharacter } from '../entities/Character.js';
 import logoUrl from '../assets/accofintra-logo.jpg';
 import { windowTextures, signTexture, tickerTexture, groundTexture, paverTexture, grassTexture } from '../utils/textures.js';
 import { distToSegment } from './Places.js';
 import { vehicleMesh } from './Traffic.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { EXTRA_STYLES, EXTRA_STYLE_NAMES, buildCentralPark, buildMetro, buildSignals, buildStreetProps } from './CityExtras.js';
 
 const BLOCK_HALF = 20; // block spans centre ± 20 (roads are 10 wide)
 
@@ -58,7 +60,8 @@ export function buildCity(scene, collision, { preset, spurs, market }) {
   scene.add(instanced(new THREE.PlaneGeometry(0.6, 2.4).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xcfcfc8 }), crossPos, 0.02));
 
   // ---------- Districts ----------
-  buildPark(scene, collision, city, { grass, shadows });
+  buildTowerPlaza(scene, collision, city, { grass, shadows });
+  buildBusStops(scene, collision, city, { shadows });
   const extraTrees = [];
   buildResidential(scene, collision, city, { win, shadows });
   for (const [bx, bz] of DISTRICTS.parks) buildGarden(scene, { grass, shadows, bx, bz, trees: extraTrees, preset });
@@ -66,6 +69,10 @@ export function buildCity(scene, collision, { preset, spurs, market }) {
   buildBusiness(scene, collision, city, { win, shadows });
   for (const [bx, bz] of DISTRICTS.lake) buildLake(scene, collision, city, { bx, bz, trees: extraTrees });
   for (const [bx, bz] of DISTRICTS.stadium) buildStadium(scene, collision, city, { bx, bz, shadows });
+  for (const [bx, bz] of DISTRICTS.centralPark || []) buildCentralPark(scene, collision, city, { grass, shadows, bx, bz, trees: extraTrees });
+  buildMetro(scene, collision, city, { shadows });
+  buildSignals(scene, city, { shadows });
+  buildStreetProps(scene, collision, city, { shadows });
 
   // ---------- Buildings ----------
   for (const b of BUILDINGS) buildBuilding(scene, collision, city, b, { win, shadows, market });
@@ -85,7 +92,8 @@ export function buildCity(scene, collision, { preset, spurs, market }) {
   // ---------- Trees and lamps ----------
   const nearSpur = (x, z, m) => spurs.some((s) => distToSegment(x, z, s) < m);
   const nearBuilding = (x, z, m) => BUILDINGS.some((b) => Math.abs(x - b.x) < b.w / 2 + m && Math.abs(z - b.z) < b.d / 2 + m);
-  const treePts = [...extraTrees];
+  const clearOf = (x, z) => !(city.noTrees || []).some(([px, pz]) => Math.hypot(px - x, pz - z) < 4.2);
+  const treePts = extraTrees.filter(([x, z]) => clearOf(x, z) && !nearBuilding(x, z, 1.2));
   for (const bx of B) for (const bz of B) {
     if (bx === 0 && bz === 0) continue;
     for (let t = -17; t <= 17; t += 6.8) {
@@ -95,12 +103,6 @@ export function buildCity(scene, collision, { preset, spurs, market }) {
         treePts.push([x, z]);
       }
     }
-  }
-  for (let x = -17; x <= 17; x += 4.2) for (let z = -17; z <= 17; z += 4.2) {
-    const jx = x + (Math.random() - 0.5) * 1.6, jz = z + (Math.random() - 0.5) * 1.6;
-    if (Math.abs(jx) < 4.6 || Math.abs(jz) < 4.6 || Math.hypot(jx, jz) < 9.5) continue;
-    if (Math.random() > preset.treeDensity) continue;
-    treePts.push([jx, jz]);
   }
   const outerPts = [];
   const R = CITY.bound + 6;
@@ -173,7 +175,7 @@ function buildBusiness(scene, collision, city, { win, shadows }) {
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return g;
   });
-  const mat = new THREE.MeshLambertMaterial({ map: win.map, emissiveMap: win.emissive, emissive: 0xcfe8ff, emissiveIntensity: 0, vertexColors: true });
+  const mat = new THREE.MeshStandardMaterial({ map: win.map, emissiveMap: win.emissive, emissive: 0xcfe8ff, emissiveIntensity: 0, vertexColors: true, roughness: 0.2, metalness: 0.45 });
   city.nightMats.push(mat);
   const mesh = new THREE.Mesh(mergeGeometries(parts), mat);
   parts.forEach((g) => g.dispose());
@@ -203,7 +205,7 @@ function buildStadium(scene, collision, city, { bx, bz, shadows }) {
   pitch.position.set(bx, 0.12, bz); pitch.scale.z = 0.8; scene.add(pitch);
   const roof = new THREE.Mesh(new THREE.TorusGeometry(17, 0.6, 6, 40), new THREE.MeshLambertMaterial({ color: 0xd4a846, emissive: 0xd4a846, emissiveIntensity: 0.3 }));
   roof.rotation.x = Math.PI / 2; roof.position.set(bx, 12.2, bz); roof.scale.y = 0.8; scene.add(roof);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: signTexture('FINVORA STADIUM', 0xd4a846, 'HOME OF THE FINVORA LEAGUE'), side: THREE.DoubleSide }));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: signTexture('FINVORA STADIUM', 0xd4a846, 'HOME OF THE FINVORA LEAGUE', (14) / (3.5)), side: THREE.DoubleSide }));
   sign.position.set(bx, 15, bz - 14.8); scene.add(sign);
   collision.addBox(bx, bz, 36, 29, 12);
 }
@@ -288,63 +290,6 @@ function addLamps(scene, pts, shadows) {
   return headMat;
 }
 
-function buildPark(scene, collision, city, { grass, shadows }) {
-  const pavMat = new THREE.MeshLambertMaterial({ color: 0xa7a59d });
-  const gm = new THREE.MeshLambertMaterial({ map: grass }); grass.repeat.set(9, 9);
-  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(37, 37).rotateX(-Math.PI / 2), gm);
-  lawn.position.y = 0.09; lawn.receiveShadow = shadows;
-  scene.add(lawn);
-  const pathMat = pavMat;
-  for (const [w, d] of [[3.6, 37], [37, 3.6]]) {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), pathMat);
-    p.position.y = 0.1; p.receiveShadow = shadows; scene.add(p);
-  }
-  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.2, 0.03, 32), pathMat);
-  plaza.position.y = 0.105; plaza.receiveShadow = shadows; scene.add(plaza);
-
-  // Fountain with a slowly spinning gold coin
-  const stone = new THREE.MeshLambertMaterial({ color: 0xbdb8ad });
-  const basin = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.2, 0.7, 24), stone);
-  basin.position.y = 0.35; basin.castShadow = shadows; basin.receiveShadow = shadows; scene.add(basin);
-  const water = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 0.1, 24), new THREE.MeshLambertMaterial({ color: 0x3f8fb8, emissive: 0x0b2a3a }));
-  water.position.y = 0.62; scene.add(water);
-  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 1.6, 10), stone);
-  pillar.position.y = 1.3; pillar.castShadow = shadows; scene.add(pillar);
-  const coinMat = new THREE.MeshLambertMaterial({ color: 0xd4a846, emissive: 0x3a2a08 });
-  const coin = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.22, 28).rotateX(Math.PI / 2), coinMat);
-  coin.position.y = 3.3; coin.castShadow = shadows; scene.add(coin);
-  const rupee = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: rupeeTexture(), transparent: true }));
-  rupee.position.z = 0.12; coin.add(rupee);
-  const rupeeBack = rupee.clone(); rupeeBack.rotation.y = Math.PI; rupeeBack.position.z = -0.12; coin.add(rupeeBack);
-  city.animated.push((dt, t) => { coin.rotation.y += dt * 0.6; water.position.y = 0.62 + Math.sin(t * 2) * 0.015; });
-  collision.addCircle(0, 0, 4.25);
-
-  // Benches beside the paths
-  const wood = new THREE.MeshLambertMaterial({ color: 0x8a6440 });
-  const benchSpots = [[2.8, -13, 0], [-2.8, -13, 0], [2.8, 13, 0], [-2.8, 13, 0], [13, 2.8, 1], [13, -2.8, 1], [-13, 2.8, 1], [-13, -2.8, 1]];
-  for (const [x, z, rot] of benchSpots) {
-    const g = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 2), wood); seat.position.y = 0.48;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 2), wood); back.position.set(x > 0 && !rot ? 0.28 : -0.28, 0.75, 0);
-    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 1.8), new THREE.MeshLambertMaterial({ color: 0x222222 })); legs.position.y = 0.22; legs.scale.set(1, 1, 1);
-    g.add(seat, back, legs);
-    g.position.set(x, 0, z);
-    if (rot) { g.rotation.y = Math.PI / 2; back.position.x = z > 0 ? -0.28 : 0.28; }
-    else back.position.x = x > 0 ? 0.28 : -0.28;
-    seat.castShadow = back.castShadow = shadows;
-    scene.add(g);
-    if (rot) collision.addBox(x, z, 2, 0.7, 0.9); else collision.addBox(x, z, 0.7, 2, 0.9);
-  }
-}
-
-function rupeeTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#5b420e'; g.font = '800 96px system-ui, Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('₹', 64, 70);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-
 /** Box geometry with world-scaled UVs on the side faces so a shared window texture tiles every 4 m. */
 function scaledBox(w, h, d, tile = 4) {
   const g = new THREE.BoxGeometry(w, h, d);
@@ -372,7 +317,8 @@ function buildBuilding(scene, collision, city, b, { win, shadows, market }) {
   const add = (mesh, x = 0, y = 0, z = 0) => { mesh.position.set(x, y, z); mesh.castShadow = shadows; mesh.receiveShadow = shadows; group.add(mesh); return mesh; };
   const box = (w, h, d, m) => new THREE.Mesh(scaledBox(w, h, d), m);
 
-  switch (b.style) {
+  switch (EXTRA_STYLES[b.style] ? '__extra' : b.style) {
+    case '__extra': EXTRA_STYLES[b.style]({ L: styled(group, b), b, city, shadows, win }); break;
     case 'classical': {
       add(new THREE.Mesh(new THREE.BoxGeometry(b.w + 1.6, 0.8, b.d + 1.6), new THREE.MeshLambertMaterial({ color: 0xbfb8a8 })), 0, 0.4, 0);
       add(new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h - 2, b.d - 4), solidMat), 0, (b.h - 2) / 2 + 0.8, -2);
@@ -392,15 +338,153 @@ function buildBuilding(scene, collision, city, b, { win, shadows, market }) {
       break;
     }
     case 'tower': {
-      add(box(b.w, b.h * 0.72, b.d, mats), 0, b.h * 0.36, 0);
-      add(box(b.w * 0.72, b.h * 0.28, b.d * 0.72, mats), 0, b.h * 0.72 + b.h * 0.14, 0);
-      if (b.id === 'accofintra-hq') addLogos(group, b);
-      add(new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.74, 0.6, b.d * 0.74), accentMat), 0, b.h + 0.3, 0);
-      add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 6, 5), new THREE.MeshLambertMaterial({ color: 0x999999 })), 0, b.h + 3.4, 0);
+      // AccoFinTra Tower: glass lobby podium, two setback shafts, gold crown and spire, logos on all sides.
+      const glass = new THREE.MeshStandardMaterial({ color: 0x6f8aa5, map: win.map, emissiveMap: win.emissive, emissive: 0xbfe3ff, emissiveIntensity: 0, roughness: 0.12, metalness: 0.55 });
+      const lobby = new THREE.MeshStandardMaterial({ color: 0x8fb4c8, transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.3 });
+      city.nightMats.push(glass);
+      const P = 9, s1w = b.w * 0.78, s1d = b.d * 0.74, s1h = b.h * 0.6, s2w = s1w * 0.8, s2d = s1d * 0.82, s2h = b.h * 0.22;
+      add(new THREE.Mesh(new THREE.BoxGeometry(b.w, P, b.d), [lobby, lobby, roofMat, roofMat, lobby, lobby]), 0, P / 2, 0);
+      add(new THREE.Mesh(new THREE.BoxGeometry(b.w - 1.2, P - 0.4, b.d - 1.2), new THREE.MeshLambertMaterial({ color: 0x2a2f38 })), 0, P / 2, 0); // lobby interior
+      add(new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.6, 0.7, b.d + 0.6), accentMat), 0, P + 0.35, 0);
+      add(box(s1w, s1h, s1d, [glass, glass, roofMat, roofMat, glass, glass]), 0, P + s1h / 2, -b.d * 0.08);
+      add(box(s2w, s2h, s2d, [glass, glass, roofMat, roofMat, glass, glass]), 0, P + s1h + s2h / 2, -b.d * 0.08);
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.Mesh(new THREE.BoxGeometry(0.6, s1h + s2h, 0.6), accentMat), x * s1w / 2, P + (s1h + s2h) / 2 - (x && z ? 0 : 0), -b.d * 0.08 + z * s1d / 2);
+      const crownY = P + s1h + s2h;
+      add(new THREE.Mesh(new THREE.CylinderGeometry(s2w * 0.42, s2w * 0.55, 8, 4, 1).rotateY(Math.PI / 4), accentMat), 0, crownY + 4, -b.d * 0.08);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.4, 14, 6), new THREE.MeshLambertMaterial({ color: 0xd9d9d9 })), 0, crownY + 15, -b.d * 0.08);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff4040 })); tip.position.set(0, crownY + 22.2, -b.d * 0.08); group.add(tip);
+      city.animated.push((dt, t) => { tip.visible = Math.sin(t * 3) > 0; });
+      const podSign = new THREE.Mesh(new THREE.PlaneGeometry(16, 1.9), new THREE.MeshBasicMaterial({ map: signTexture('ACCOFINTRA TOWER', b.accent, 'SERVICE HALL · 16 COUNTERS · OPEN 24 HOURS', (16) / (1.9)) }));
+      podSign.position.set(0, P - 1.4, b.d / 2 + 0.08); group.add(podSign);
+      addLogos(group, { upperY: P + s1h + s2h * 0.5, half: [s2w / 2 + 0.06, s2d / 2 + 0.06], z0: -b.d * 0.08, size: Math.min(s2w, s2d) * 0.8, frontY: P + s1h * 0.12, frontZ: -b.d * 0.08 + s1d / 2 + 0.06 });
+      b.tall = crownY + 22;
+      break;
+    }
+    case 'bse': {
+      // Exchange tower inspired by Mumbai's historic exchange building: podium with pilotis, a tall concrete
+      // shaft with deep vertical fins, and a wider "hammerhead" crown carrying the name.
+      const conc = new THREE.MeshLambertMaterial({ color: 0xd8cfbd, map: win.map, emissiveMap: win.emissive, emissive: 0xffe6b0, emissiveIntensity: 0 });
+      city.nightMats.push(conc);
+      const plain = new THREE.MeshLambertMaterial({ color: 0xcfc6b3 }), dark = new THREE.MeshLambertMaterial({ color: 0x3a3a3c });
+      const sw = b.w - 10, sd = b.d - 8, P = 6, top = 10, sh = b.h - P - top;
+      add(new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.6, b.d), plain), 0, 0.3, 0);
+      add(new THREE.Mesh(new THREE.BoxGeometry(sw + 2, P, sd + 2), dark), 0, P / 2, -1);           // recessed ground floor
+      add(new THREE.Mesh(new THREE.BoxGeometry(b.w - 2, 1.2, b.d - 2), plain), 0, P + 0.6, 0);        // podium deck
+      for (let i = 0; i < 6; i++) add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, P, 10), plain), -b.w / 2 + 2 + i * ((b.w - 4) / 5), P / 2, b.d / 2 - 2);
+      add(box(sw, sh, sd, [conc, conc, roofMat, roofMat, conc, conc]), 0, P + 1.2 + sh / 2, -1);
+      const fins = [];
+      for (let i = 0; i <= 6; i++) { const x = -sw / 2 + i * (sw / 6); fins.push(new THREE.BoxGeometry(0.7, sh, 1.1).translate(x, P + 1.2 + sh / 2, -1 + sd / 2 + 0.5), new THREE.BoxGeometry(0.7, sh, 1.1).translate(x, P + 1.2 + sh / 2, -1 - sd / 2 - 0.5)); }
+      for (let i = 0; i <= 5; i++) { const z = -1 - sd / 2 + i * (sd / 5); fins.push(new THREE.BoxGeometry(1.1, sh, 0.7).translate(sw / 2 + 0.5, P + 1.2 + sh / 2, z), new THREE.BoxGeometry(1.1, sh, 0.7).translate(-sw / 2 - 0.5, P + 1.2 + sh / 2, z)); }
+      const finMesh = new THREE.Mesh(mergeGeometries(fins), plain); fins.forEach((g) => g.dispose()); add(finMesh);
+      const crownY = P + 1.2 + sh;
+      add(new THREE.Mesh(new THREE.BoxGeometry(sw + 4, top, sd + 4), new THREE.MeshLambertMaterial({ color: 0xbfb5a2 })), 0, crownY + top / 2, -1);
+      add(new THREE.Mesh(new THREE.BoxGeometry(sw + 4.2, 1.2, sd + 4.2), dark), 0, crownY + 1.4, -1);
+      const nameSign = new THREE.Mesh(new THREE.PlaneGeometry(sw + 2, 4.2), new THREE.MeshBasicMaterial({ map: signTexture('STOCK EXCHANGE', b.accent, 'FINVORA · EST. 2026', (sw + 2) / (4.2)) }));
+      nameSign.position.set(0, crownY + 6, -1 + sd / 2 + 2.05); group.add(nameSign);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 16, 6), new THREE.MeshLambertMaterial({ color: 0xbbbbbb })), 0, b.h + 8, -1);
+      // LED ticker band on the podium
+      const tk = tickerTexture(); city.tickerCanvas = tk.canvas; city.tickerTex = tk.tex;
+      const band = new THREE.Mesh(new THREE.PlaneGeometry(b.w - 3, 1.1), new THREE.MeshBasicMaterial({ map: tk.tex }));
+      band.position.set(0, P + 0.6, b.d / 2 - 0.98); group.add(band);
+      drawTicker(city, market);
+      city.animated.push((dt) => { tk.tex.offset.x = (tk.tex.offset.x + dt * 0.035) % 1; });
+      addBull(scene, collision, b.x + 8, b.z + b.d / 2 + 5.5, shadows);
+      break;
+    }
+    case 'bank': {
+      // Classical bank: steps, a colonnade under a pediment, and a dome over the banking hall.
+      const L = styled(group, b), fw = L.fw, fd = L.fd;
+      const stone = new THREE.MeshLambertMaterial({ color: 0xece5d6 }), step = new THREE.MeshLambertMaterial({ color: 0xc9c1b0 });
+      for (let i = 0; i < 3; i++) L.add(new THREE.Mesh(new THREE.BoxGeometry(fw + 2 - i * 0.8, 0.3, fd + 2 - i * 0.8), step), 0, 0.15 + i * 0.3, 0);
+      L.add(box(fw - 2, b.h - 1, fd - 6, [solidMat, solidMat, roofMat, roofMat, solidMat, solidMat]), 0, 0.9 + (b.h - 1) / 2, -3);
+      const colGeo = new THREE.CylinderGeometry(0.5, 0.58, b.h - 3.4, 14);
+      for (let i = 0; i < 8; i++) { const x = -fw / 2 + 1.6 + i * ((fw - 3.2) / 7); L.add(new THREE.Mesh(colGeo, stone), x, 0.9 + (b.h - 3.4) / 2, fd / 2 - 1.3); L.add(new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 1.3), stone), x, b.h - 2.35, fd / 2 - 1.3); }
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw, 1.6, 3.6), stone), 0, b.h - 1.4, fd / 2 - 1.7);
+      const tri = new THREE.Shape(); tri.moveTo(-fw / 2, 0); tri.lineTo(fw / 2, 0); tri.lineTo(0, 3.6); tri.lineTo(-fw / 2, 0);
+      L.add(new THREE.Mesh(new THREE.ExtrudeGeometry(tri, { depth: 3.6, bevelEnabled: false }), stone), 0, b.h - 0.6, fd / 2 - 3.5);
+      L.add(new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 2.4, 24), stone), 0, b.h + 1.2, -3);
+      L.add(new THREE.Mesh(new THREE.SphereGeometry(5.2, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5f8f7a })), 0, b.h + 2.4, -3);
+      L.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 2, 10), accentMat), 0, b.h + 8.4, -3);
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(fw * 0.7, 1.2), new THREE.MeshBasicMaterial({ map: signTexture('FINVORA BANK', b.accent, 'SINCE 2026 · DEPOSITS · LOANS · CARDS', (fw * 0.7) / (1.2)) }));
+      L.add(nm, 0, b.h - 1.4, fd / 2 + 0.12);
+      break;
+    }
+    case 'showroom': {
+      // Low, fully glazed car showroom with a thin roof slab: the cars inside are visible from the street.
+      const L = styled(group, b), fw = L.fw, fd = L.fd;
+      const glassW = new THREE.MeshLambertMaterial({ color: 0xa8c8dc, transparent: true, opacity: 0.32, depthWrite: false });
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw, 0.3, fd), new THREE.MeshLambertMaterial({ color: 0xd8d8d8 })), 0, 0.15, 0);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw, b.h, 0.4), solidMat), 0, b.h / 2, -fd / 2 + 0.2);
+      for (const [w, d, x, z] of [[fw, 0.1, 0, fd / 2], [0.1, fd, -fw / 2, 0], [0.1, fd, fw / 2, 0]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, b.h, d), glassW); m.position.set(x, b.h / 2, z); m.renderOrder = 2; L.group.add(m); }
+      for (let i = -3; i <= 3; i++) L.add(new THREE.Mesh(new THREE.BoxGeometry(0.15, b.h, 0.15), new THREE.MeshLambertMaterial({ color: 0x222831 })), i * fw / 6.5, b.h / 2, fd / 2);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw + 3, 0.6, fd + 3), new THREE.MeshLambertMaterial({ color: 0x1b1f26 })), 0, b.h + 0.3, 0.6);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw + 3.05, 0.25, fd + 3.05), accentMat), 0, b.h - 0.02, 0.6);
+      [['sedan', 0xc0392b, -7], ['gt', 0x111111, 0], ['suv', 0xecf0f1, 7]].forEach(([m, c, x]) => { const v = vehicleMesh(m === 'gt' ? 'sports' : m, c); v.mesh.position.set(x, 0.3, -1); v.mesh.rotation.y = 0.6; L.group.add(v.mesh); });
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.6), new THREE.MeshBasicMaterial({ map: signTexture('FINVORA MOTORS', b.accent, 'NEW · EV · SCOOTERS', (14) / (1.6)) }));
+      L.add(nm, 0, b.h + 0.3, fd / 2 + 2.12);
+      break;
+    }
+    case 'boutique': {
+      // Two-storey fashion boutique: shop windows with mannequins under striped awnings, a balcony above.
+      const L = styled(group, b), fw = L.fw, fd = L.fd;
+      L.add(box(fw, b.h, fd, [solidMat, solidMat, roofMat, roofMat, solidMat, solidMat]), 0, b.h / 2, 0);
+      const shop = new THREE.MeshLambertMaterial({ color: 0x20262e, emissive: 0xffe2c4, emissiveIntensity: 0.12 });
+      for (const x of [-fw / 3, fw / 3]) L.add(new THREE.Mesh(new THREE.BoxGeometry(fw / 3.4, 3.4, 0.12), shop), x, 2.1, fd / 2 + 0.05);
+      const stripes = awningTexture(b.accent);
+      for (const x of [-fw / 3, fw / 3]) { const aw = new THREE.Mesh(new THREE.BoxGeometry(fw / 3.2, 0.12, 1.6), new THREE.MeshLambertMaterial({ map: stripes })); aw.rotation.x = 0.25; L.add(aw, x, 4.1, fd / 2 + 0.8); }
+      const pink = new THREE.MeshLambertMaterial({ color: b.accent });
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw * 0.9, 0.15, 1.3), solidMat), 0, 5.6, fd / 2 + 0.65);
+      for (let i = 0; i < 14; i++) L.add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.06), pink), -fw * 0.44 + i * (fw * 0.88 / 13), 6.1, fd / 2 + 1.25);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw * 0.9, 0.08, 0.08), pink), 0, 6.55, fd / 2 + 1.25);
+      for (let i = 0; i < 4; i++) L.add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 0.1), new THREE.MeshLambertMaterial({ color: 0x3b4653, emissive: 0xfff0d0, emissiveIntensity: 0.15 })), -fw * 0.36 + i * fw * 0.24, 7.8, fd / 2 + 0.05);
+      const mannequins = [[0xc0577a, 'saree'], [0x2a3340, 'suit'], [0xf08a3c, 'kurta'], [0x5aa9e6, 'shirt']];
+      mannequins.forEach(([c, top], i) => { const ch = createCharacter({ skin: 0xe8e0d8, shirt: c, pants: top === 'saree' ? c : 0x222222, hair: 0xe8e0d8, hairStyle: 'short', top, outer: c, accessory: 'none' }, { blobShadow: false }); ch.root.position.set((i < 2 ? -fw / 3 : fw / 3) + (i % 2 ? 1.2 : -1.2), 0.35, fd / 2 - 0.6); ch.root.scale.setScalar(0.92); L.group.add(ch.root); });
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw + 0.4, 0.5, fd + 0.4), pink), 0, b.h + 0.25, 0);
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.5), new THREE.MeshBasicMaterial({ map: signTexture('STYLE STUDIO', b.accent, 'FASHION · ACCESSORIES', (9) / (1.5)) }));
+      L.add(nm, 0, 9.6, fd / 2 + 0.06);
+      break;
+    }
+    case 'mart': {
+      // Big-box supermarket: red fascia, glass entrance, trolleys and a parking bay in front.
+      const L = styled(group, b), fw = L.fw, fd = L.fd;
+      L.add(box(fw, b.h, fd, [solidMat, solidMat, roofMat, roofMat, solidMat, solidMat]), 0, b.h / 2, 0);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(fw + 0.3, 2.2, 0.4), accentMat), 0, b.h - 1.1, fd / 2 + 0.2);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(10, 3.6, 0.12), new THREE.MeshLambertMaterial({ color: 0x9fc2d4, transparent: true, opacity: 0.6 })), 0, 1.8, fd / 2 + 0.07);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 3), new THREE.MeshLambertMaterial({ color: 0x2b2f38 })), 0, 4, fd / 2 + 1.5);
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(fw * 0.6, 1.8), new THREE.MeshBasicMaterial({ map: signTexture('SUPERMART', b.accent, 'FRESH · DAILY NEEDS · BILLS', (fw * 0.6) / (1.8)) }));
+      L.add(nm, 0, b.h - 1.1, fd / 2 + 0.42);
+      const lineM = new THREE.MeshBasicMaterial({ color: 0xf2f2ee });
+      for (let i = -5; i <= 5; i++) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 4.5).rotateX(-Math.PI / 2), lineM); L.add(ln, i * 2.8, 0.13, fd / 2 + 6.5); }
+      const cart = new THREE.MeshLambertMaterial({ color: 0xb8bcc2 });
+      for (let i = 0; i < 4; i++) L.add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.9), cart), fw / 2 - 3 - i * 0.25, 0.6, fd / 2 + 2.2 + i * 0.3);
+      break;
+    }
+    case 'house': {
+      // Your home: two-storey bungalow with a tiled roof, porch, garden and an attached garage.
+      const L = styled(group, b), fw = L.fw, fd = L.fd;
+      const wall = new THREE.MeshLambertMaterial({ color: b.color }), tile = new THREE.MeshLambertMaterial({ color: b.accent }), trim = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      const mainW = 11, mainX = -2.5, garW = 5, garX = fw / 2 - garW / 2;
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(mainW, 6.2, fd), wall), mainX, 3.1, 0);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(mainW + 0.3, 0.25, fd + 0.3), trim), mainX, 3.1, 0);
+      const roof = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, mainW + 1, 3, 1).rotateZ(Math.PI / 2).scale(1, 2.2, fd * 0.62), tile); L.add(roof, mainX, 7.3, 0);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(garW, 3.2, fd - 1), wall), garX, 1.6, -0.5);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(garW + 0.4, 0.3, fd - 0.6), tile), garX, 3.35, -0.5);
+      const shutter = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.6), new THREE.MeshLambertMaterial({ map: shutterTexture() })); L.add(shutter, garX, 1.35, fd / 2 - 0.98);
+      const winM = new THREE.MeshLambertMaterial({ color: 0x2e3e4c, emissive: 0xffd58a, emissiveIntensity: 0 }); city.nightMats.push(winM);
+      for (const [x, y] of [[mainX - 3.2, 1.7], [mainX + 3.2, 1.7], [mainX - 3.2, 4.7], [mainX + 0, 4.7], [mainX + 3.2, 4.7]]) { L.add(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.3), winM), x, y, fd / 2 + 0.02); L.add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.2), trim), x, y - 0.7, fd / 2 + 0.08); }
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.1), new THREE.MeshLambertMaterial({ color: 0x6b3f22 })), 0.4, 1.15, fd / 2 + 0.05);
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 1.8), trim), 0.4, 2.7, fd / 2 + 0.9);
+      for (const x of [-0.9, 1.7]) L.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 8), trim), x, 1.35, fd / 2 + 1.6);
+      L.add(new THREE.Mesh(new THREE.PlaneGeometry(garW, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8d8a83 })), garX, 0.13, fd / 2 + 6);
+      const hedge = new THREE.MeshLambertMaterial({ color: 0x3e6a33 });
+      L.add(new THREE.Mesh(new THREE.BoxGeometry(11, 0.9, 0.6), hedge), -7.5 + 2, 0.45, fd / 2 + 8);
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshBasicMaterial({ map: signTexture('HOME', b.accent, 'YOUR HOUSE', (2.4) / (0.6)) }));
+      L.add(nm, 0.4, 3.1, fd / 2 + 0.2);
+      city.homeGarage = L.toWorld(garX, fd / 2 + 4);
       break;
     }
     case 'glass': {
-      const glass = new THREE.MeshLambertMaterial({ color: b.color, map: win.map, emissiveMap: win.emissive, emissive: 0xbfe3ff, emissiveIntensity: 0 });
+      const glass = new THREE.MeshStandardMaterial({ color: b.color, map: win.map, emissiveMap: win.emissive, emissive: 0xbfe3ff, emissiveIntensity: 0, roughness: 0.15, metalness: 0.5 });
       city.nightMats.push(glass);
       add(box(b.w, b.h, b.d, [glass, glass, roofMat, roofMat, glass, glass]), 0, b.h / 2, 0);
       const finGeo = new THREE.BoxGeometry(0.3, b.h, 0.5);
@@ -441,7 +525,7 @@ function buildBuilding(scene, collision, city, b, { win, shadows, market }) {
         add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.25, 1.2), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 })), dx, 0.12, dz);
         collision.addCircle(b.x + dx, b.z + dz, 0.8);
       });
-      const top = new THREE.Mesh(new THREE.PlaneGeometry(along[0] * 0.8, 0.8), new THREE.MeshBasicMaterial({ map: signTexture('FUEL · CNG · EV', b.accent, 'FINVORA FUELS'), side: THREE.DoubleSide }));
+      const top = new THREE.Mesh(new THREE.PlaneGeometry(along[0] * 0.8, 0.8), new THREE.MeshBasicMaterial({ map: signTexture('FUEL · CNG · EV', b.accent, 'FINVORA FUELS', (along[0] * 0.8) / (0.8)), side: THREE.DoubleSide }));
       const edge = (dir0[0] ? along[0] : along[1]) / 2 + 1.07; top.position.set(cx + dir0[0] * edge, 5.6, cz + dir0[1] * edge); top.rotation.y = Math.atan2(dir0[0], dir0[1]); group.add(top);
       city.fuelStation = { x: b.x + cx, z: b.z + cz };
       break;
@@ -459,18 +543,23 @@ function buildBuilding(scene, collision, city, b, { win, shadows, market }) {
   const faceHalf = dir[0] ? b.w / 2 : b.d / 2;
   const rotY = Math.atan2(dir[0], dir[1]);
   const doorGroup = new THREE.Group();
-  const inset = b.style === 'classical' ? -3.95 : 0.05; // classical door sits behind the colonnade
+  const inset = b.style === 'classical' || b.style === 'bank' ? -3.95 : b.style === 'bse' ? -3.95 : 0.05; // doors behind a colonnade sit back
   doorGroup.position.set(dir[0] * (faceHalf + inset), 0, dir[1] * (faceHalf + inset));
   doorGroup.rotation.y = rotY;
   group.add(doorGroup);
   const doorMat = new THREE.MeshLambertMaterial({ color: 0x0f1a22, emissive: 0x3a6f8f, emissiveIntensity: 0.25 });
-  const door = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 0.2), doorMat); door.position.y = 1.6 + (b.style === 'classical' ? 0.8 : 0); doorGroup.add(door);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 0.2), doorMat); door.position.y = 1.6 + (b.style === 'classical' || b.style === 'bank' ? 0.8 : 0); doorGroup.add(door);
+  if (b.style === 'house' || b.style === 'tower') door.visible = false;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.35, 0.3), accentMat); frame.position.y = door.position.y + 1.75; doorGroup.add(frame);
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(5, 0.18, 2.2), new THREE.MeshLambertMaterial({ color: 0x1c1f24 }));
-  canopy.position.set(0, door.position.y + 2.05, 1.05); canopy.castShadow = shadows; doorGroup.add(canopy);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.75), new THREE.MeshBasicMaterial({ map: signTexture(b.short, b.accent, 'OPEN · FINVORA') }));
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(b.style === 'tower' ? 9 : 5, 0.18, b.style === 'tower' ? 4 : 2.2), new THREE.MeshLambertMaterial({ color: b.style === 'tower' ? 0xd4a846 : 0x1c1f24 }));
+  canopy.position.set(0, door.position.y + 2.05, b.style === 'tower' ? 2 : 1.05); canopy.castShadow = shadows; doorGroup.add(canopy);
+  if (b.style === 'house') { canopy.visible = false; frame.visible = false; }
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.75), new THREE.MeshBasicMaterial({ map: signTexture(b.short, b.accent, 'OPEN · FINVORA', (7) / (1.75)) }));
   sign.position.set(0, Math.min(b.h - 1.5, door.position.y + 3.6), b.style === 'glass' ? 0.75 : 0.25); // in front of glass fins
-  if (b.style === 'classical') sign.position.set(0, b.h - 4.6, 4.05);
+  if (b.style === 'classical' || b.style === 'bank') sign.position.set(0, 4.6, 4.2);
+  if (b.style === 'bse') sign.position.set(0, 4.8, 4.3);
+  if (b.style === 'tower') sign.position.set(0, 4.6, 0.3);
+  if (['house', 'tower', 'bank', 'bse', 'boutique', 'mart', 'showroom', ...EXTRA_STYLE_NAMES].includes(b.style)) sign.visible = false; // these carry their own name signs
   doorGroup.add(sign);
 
   const dp = doorPoint(b);
@@ -483,23 +572,119 @@ function buildBuilding(scene, collision, city, b, { win, shadows, market }) {
   scene.add(beam);
   city.animated.push((dt, t) => { const s = 1 + Math.sin(t * 3) * 0.07; marker.scale.set(s, 1, s); beam.material.opacity = 0.08 + (Math.sin(t * 3) + 1) * 0.04; });
 
-  collision.addBox(b.x, b.z, b.style === 'classical' ? b.w + 1.6 : b.w, b.style === 'classical' ? b.d + 1.6 : b.d, b.h);
+  const pad = b.style === 'classical' || b.style === 'bank' ? 1.6 : 0;
+  if (b.style === 'house') { collision.addBox(b.x, b.z, b.w, b.d, b.h); }
+  else collision.addBox(b.x, b.z, b.w + pad, b.d + pad, b.tall || b.h);
   city.doors.push({ type: 'building', building: b, x: dp.x, z: dp.z, face: dp.face, marker });
 }
 
-// The AccoFinTra logo on all four sides of the tower's upper section, and above the entrance.
+// The AccoFinTra logo on all four sides of the tower's upper shaft, and above the entrance.
 let logoTex = null;
-function addLogos(group, b) {
+function addLogos(group, o) {
   logoTex ||= new THREE.TextureLoader().load(logoUrl, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; });
   logoTex.colorSpace = THREE.SRGBColorSpace; logoTex.anisotropy = 4;
   const mat = new THREE.MeshBasicMaterial({ map: logoTex, toneMapped: false });
-  const upperY = b.h * 0.72 + b.h * 0.14, half = b.w * 0.72 / 2 + 0.06, size = b.w * 0.6;
   for (let i = 0; i < 4; i++) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-    const a = i * Math.PI / 2; m.position.set(Math.sin(a) * half, upperY, Math.cos(a) * half); m.rotation.y = a; group.add(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(o.size, o.size), mat);
+    const a = i * Math.PI / 2, hx = o.half[0], hz = o.half[1];
+    m.position.set(Math.sin(a) * hx, o.upperY, o.z0 + Math.cos(a) * hz); m.rotation.y = a; group.add(m);
   }
-  const low = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), mat);
-  low.position.set(0, 17, b.d / 2 + 0.06); group.add(low);
+  const low = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), mat);
+  low.position.set(0, o.frontY, o.frontZ); group.add(low);
+}
+
+/** A local frame for a building whose entrance is on side `b.door`: build as if the door faced +z. */
+function styled(group, b) {
+  const dir = { '+z': [0, 1], '-z': [0, -1], '+x': [1, 0], '-x': [-1, 0] }[b.door];
+  const g = new THREE.Group(); g.rotation.y = Math.atan2(dir[0], dir[1]); group.add(g);
+  const fw = dir[0] ? b.d : b.w, fd = dir[0] ? b.w : b.d;
+  return {
+    group: g, fw, fd,
+    add(mesh, x = 0, y = 0, z = 0) { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; g.add(mesh); return mesh; },
+    toWorld(x, z) { const c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); return { x: b.x + x * c + z * s, z: b.z - x * s + z * c, yaw: g.rotation.y }; },
+  };
+}
+
+function awningTexture(accent) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 8; const g = c.getContext('2d');
+  for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#' + new THREE.Color(accent).getHexString(); g.fillRect(i * 8, 0, 8, 8); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function shutterTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#c9ccd1'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#9aa0a8';
+  for (let y = 0; y < 64; y += 5) g.fillRect(0, y, 64, 1.5);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/** A bronze bull on a granite plinth outside the exchange (a classic market symbol). */
+function addBull(scene, collision, x, z, shadows) {
+  const bronze = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, metalness: 0.75, roughness: 0.35 });
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = -0.5;
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1, 4.4), new THREE.MeshLambertMaterial({ color: 0x3a3a3c })); plinth.position.y = 0.5; g.add(plinth);
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.75, 1.7, 6, 12).rotateX(Math.PI / 2), bronze); body.position.set(0, 2.1, 0); body.scale.set(1, 1.05, 1); g.add(body);
+  const hump = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 10), bronze); hump.position.set(0, 2.55, 0.65); g.add(hump);
+  const head = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.5, 4, 10).rotateX(1.1), bronze); head.position.set(0, 2.05, 1.85); g.add(head);
+  for (const s of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.75, 8), bronze); horn.position.set(s * 0.42, 2.55, 1.85); horn.rotation.z = -s * 1.0; horn.rotation.x = 0.5; g.add(horn);
+    for (const zz of [0.85, -0.85]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 1.2, 8), bronze); leg.position.set(s * 0.42, 1.55, zz); leg.rotation.x = zz > 0 ? -0.25 : 0.2; g.add(leg); }
+  }
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 1.1, 6), bronze); tail.position.set(0, 2.5, -1.6); tail.rotation.x = -0.9; g.add(tail);
+  g.traverse((m) => { m.castShadow = shadows; });
+  scene.add(g);
+  collision.addCircle(x, z, 2.3);
+}
+
+/** Centre block: AccoFinTra Plaza. A granite forecourt, walkway to the tower, lawns, pools, flags and benches. */
+function buildTowerPlaza(scene, collision, city, { grass, shadows }) {
+  const granite = new THREE.MeshLambertMaterial({ color: 0xb9b4aa });
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), granite); pl.position.y = 0.09; pl.receiveShadow = shadows; scene.add(pl);
+  const walk = new THREE.Mesh(new THREE.PlaneGeometry(6, 18).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8e887e })); walk.position.set(0, 0.1, 11); scene.add(walk);
+  const gm = new THREE.MeshLambertMaterial({ map: grass }); grass.repeat.set(3, 3);
+  for (const x of [-12.5, 12.5]) {
+    const lawn = new THREE.Mesh(new THREE.PlaneGeometry(13, 6).rotateX(-Math.PI / 2), gm); lawn.position.set(x, 0.11, 16); lawn.receiveShadow = shadows; scene.add(lawn);
+    const pool = new THREE.Mesh(new THREE.BoxGeometry(9, 0.35, 3.2), new THREE.MeshLambertMaterial({ color: 0x3f8fb8, emissive: 0x0b2a3a })); pool.position.set(x, 0.18, 9.5); scene.add(pool);
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.4, 3.8), granite); rim.position.set(x, 0.12, 9.5); scene.add(rim);
+    collision.addBox(x, 9.5, 9.6, 3.8, 0.5);
+    city.animated.push((dt, t) => { pool.position.y = 0.18 + Math.sin(t * 2 + x) * 0.01; });
+  }
+  // Flagpoles beside the entrance
+  const poleM = new THREE.MeshLambertMaterial({ color: 0xdedede });
+  [[-7.5, 0xd4a846], [7.5, 0x2fbf71], [-9.5, 0x5aa9e6], [9.5, 0xe5534b]].forEach(([x, c]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 9, 8), poleM); p.position.set(x, 4.5, 5.5); p.castShadow = shadows; scene.add(p);
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1, 6, 1), new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide })); f.position.set(x + 0.95, 8.3, 5.5); scene.add(f);
+    city.animated.push((dt, t) => { const a = f.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const u = a.getX(i) + 0.9; a.setZ(i, Math.sin(t * 4 + u * 3 + x) * 0.12 * u); } a.needsUpdate = true; });
+    collision.addCircle(x, 5.5, 0.2);
+  });
+  // Benches facing the lawns
+  const wood = new THREE.MeshLambertMaterial({ color: 0x8a6440 });
+  for (const x of [-15, -9.5, 9.5, 15]) {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.6), wood); seat.position.set(x, 0.48, 19.2); scene.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 0.1), wood); back.position.set(x, 0.78, 19.5); scene.add(back);
+    collision.addBox(x, 19.3, 2.2, 0.7, 0.9);
+  }
+  city.spawnPlaza = { x: 0, z: 17 };
+}
+
+/** Bus shelters with a bench, a timetable sign and a glass back panel. */
+function buildBusStops(scene, collision, city, { shadows }) {
+  city.busStops = [];
+  const roofM = new THREE.MeshLambertMaterial({ color: 0xc0392b }), glassM = new THREE.MeshLambertMaterial({ color: 0x9fc2d4, transparent: true, opacity: 0.45 }), steel = new THREE.MeshLambertMaterial({ color: 0x2b2f38 });
+  for (const st of BUS_STOPS) {
+    // shelter faces the road
+    const toRoad = st.road === 'z' ? [0, Math.sign(st.at - st.z)] : [Math.sign(st.at - st.x), 0];
+    const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(toRoad[0], toRoad[1]); scene.add(g);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.15, 1.9), roofM); roof.position.set(0, 2.7, 0); roof.castShadow = shadows; g.add(roof);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.2, 0.08), glassM); back.position.set(0, 1.4, -0.85); g.add(back);
+    for (const x of [-2.15, 2.15]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.7, 0.1), steel); p.position.set(x, 1.35, -0.85); g.add(p); }
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.45), steel); bench.position.set(0, 0.5, -0.5); g.add(bench);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.42), new THREE.MeshBasicMaterial({ map: signTexture('BUS STOP', 0xc0392b, st.name.toUpperCase(), (1.6) / (0.42)), side: THREE.DoubleSide })); sign.position.set(0, 2.98, 0.9); g.add(sign);
+    const bx = st.x + toRoad[0] * 1.6, bz = st.z + toRoad[1] * 1.6;
+    collision.addBox(st.x - toRoad[0] * 0.85, st.z - toRoad[1] * 0.85, toRoad[0] ? 0.2 : 4.4, toRoad[0] ? 4.4 : 0.2, 2.2);
+    city.busStops.push({ ...st, waitX: bx, waitZ: bz, roadX: st.road === 'x' ? st.at - toRoad[0] * 1.75 : st.x, roadZ: st.road === 'z' ? st.at - toRoad[1] * 1.75 : st.z });
+    city.doors.push({ type: 'bus', stop: st, x: bx, z: bz, face: Math.atan2(toRoad[0], toRoad[1]) });
+    city.noTrees = [...(city.noTrees || []), [st.x, st.z]];
+  }
 }
 
 export function drawTicker(city, market) {

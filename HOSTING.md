@@ -1,6 +1,6 @@
 # Hosting FinVora
 
-FinVora builds into ONE file: index.html (about 1.1 MB). It needs no server, no database and no login, so any static host works. A ready-built copy is already in the site folder.
+FinVora builds into ONE file: index.html (about 1.2 MB). It needs no server, no database and no login, so any static host works. A ready-built copy is already in the site folder.
 
 Choose one of the four options below.
 
@@ -16,7 +16,7 @@ To update later, drag the new site folder onto the same site's Deploys page.
 2. Upload everything in this folder (not node_modules), or push it with git:
    git init
    git add .
-   git commit -m "FinVora v7"
+   git commit -m "FinVora v8"
    git branch -M main
    git remote add origin https://github.com/ujwal373/finvora.git
    git push -u origin main

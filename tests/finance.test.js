@@ -73,13 +73,31 @@ describe('finance engine', () => {
   it('buys and sells shares with FIFO P&L and cash checks', () => {
     const f = new Finance();
     const p = f.market.price('JPM');
+    const buyCh = f.tradeCharges('buy', 10 * p).total;
     f.buyShares('JPM', 10);
-    expect(f.cash).toBeCloseTo(1000000 - 10 * p, 2);
+    expect(f.cash).toBeCloseTo(1000000 - 10 * p - buyCh, 2);
     expect(() => f.buyShares('JPM', 1e9)).toThrow(FinError);
     expect(() => f.sellShares('JPM', 11)).toThrow(FinError);
+    const sellCh = f.tradeCharges('sell', 10 * p).total;
     f.sellShares('JPM', 10);
-    expect(f.cash).toBeCloseTo(1000000, 2);
+    expect(f.cash).toBeCloseTo(1000000 - buyCh - sellCh, 2); // a round trip at the same price loses only the charges
     expect(f.qty('JPM')).toBe(0);
+  });
+  it('charges match the contract-note rules: STT 0.1%, stamp duty on buys, GST on brokerage', () => {
+    const f = new Finance();
+    const b = f.tradeCharges('buy', 100000), s = f.tradeCharges('sell', 100000);
+    expect(b.brokerage).toBe(20); expect(b.stt).toBe(100); expect(b.stamp).toBe(15); expect(s.stamp).toBe(0); expect(s.dp).toBeGreaterThan(0);
+    expect(b.gst).toBeCloseTo((20 + b.exch + b.sebi) * 0.18, 2);
+  });
+  it('outside 9:15 am to 3:30 pm orders wait as after-market orders and run at the open', () => {
+    const f = new Finance();
+    f.clockHour = 20;
+    const o = f.buyShares('AFT', 2);
+    expect(o.amo).toBe(true); expect(f.qty('AFT')).toBe(0);
+    expect(f.executeAMO()).toEqual([]);
+    f.clockHour = 10; if (!f.marketOpen()) f.advance(2);
+    const r = f.executeAMO();
+    expect(r[0].ok).toBe(true); expect(f.qty('AFT')).toBe(2);
   });
   it('ledger entries are frozen (cannot be edited)', () => {
     const f = new Finance();

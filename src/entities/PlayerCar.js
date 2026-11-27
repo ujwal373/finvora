@@ -5,7 +5,7 @@ import { carById } from '../data/shop.js';
 // The player's own car. Simple "bicycle" driving model: throttle, brake/reverse, speed-sensitive
 // steering and a handbrake. Collides with buildings, trees, lamps, traffic and the city edge.
 
-export const PARKING = { x: 8, z: 19.3, heading: 0 }; // nose-in bay on the south edge of Compound Square, facing the road
+export const PARKING = { x: 18.2, z: 18.6, heading: 0 }; // bay on the south-east corner of AccoFinTra Plaza, facing the road
 
 const MAX_REV = 6, BRAKE = 16, DRAG = 0.35, ROLL = 1.2, WHEELBASE = 2.6, MAX_STEER = 0.55;
 

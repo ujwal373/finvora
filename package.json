@@ -1,7 +1,7 @@
 {
-  "name": "finvora",
+  "name": "finworld",
   "version": "0.1.0",
-  "description": "FinVora by AccoFinTra: an interactive 3D financial city (educational simulation)",
+  "description": "FINWORLD by AccoFinTra: an interactive 3D financial universe (educational simulation)",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",

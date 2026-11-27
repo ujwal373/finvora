@@ -12,7 +12,7 @@ export const DIALOGUES = {
     start: 'hello',
     nodes: {
       hello: {
-        text: "{greeting}, {name}! I'm {self}, investment banker, based in the Banking District. I help companies raise money through IPOs and bonds, but every investor should first understand how ordinary banks work: they keep money safe and lend it out. What would you like to understand?",
+        text: "{greeting}, {name}! I'm {self}, investment banker, based in FinVora Bank. I help companies raise money through IPOs and bonds, but every investor should first understand how ordinary banks work: they keep money safe and lend it out. What would you like to understand?",
         choices: [
           { label: 'Savings account or fixed deposit?', next: 'savings' },
           { label: 'How safe is money kept in a bank?', next: 'safety' },
@@ -92,7 +92,7 @@ export const DIALOGUES = {
         choices: [{ label: 'Is there a quick way to estimate it?', next: 'rule72' }, { label: 'Now inflation, please.', next: 'inflation' }, bye()],
       },
       rule72: {
-        text: "Yes: the Rule of 72. Divide 72 by the yearly return in percent to estimate how many years money takes to double. At 8%, about 9 years. The exact answer is ln 2 ÷ ln 1.08, roughly 9.01 years. The Doubling Lab inside the Academy shows where the shortcut drifts.",
+        text: "Yes: the Rule of 72. Divide 72 by the yearly return in percent to estimate how many years money takes to double. At 8%, about 9 years. The exact answer is ln 2 ÷ ln 1.08, roughly 9.01 years. The Doubling Lab inside the Academy counter in AccoFinTra Tower shows where the shortcut drifts.",
         learn: { id: 'rule-of-72', title: 'Rule of 72', summary: 'Years to double ≈ 72 ÷ annual return (%). Exact: ln 2 ÷ ln(1 + r). At 8%: 9 vs 9.01 years.' },
         choices: [{ label: 'And inflation?', next: 'inflation' }, { label: 'And risk?', next: 'risk' }, bye('I will visit the Doubling Lab.')],
       },
@@ -224,7 +224,7 @@ export const DIALOGUES = {
     speaker: { name: 'Admissions', role: 'Financial Academy', color: 0xd4a846 },
     nodes: {
       hello: {
-        text: "Welcome to the Financial Academy, {name}. Everyone in FinVora teaches something. Every idea you pick up in conversation is saved to your Knowledge Journal, which you can open from the menu.",
+        text: "Welcome to the Academy counter in AccoFinTra Tower, {name}. Everyone in FinVora teaches something. Every idea you pick up in conversation is saved to your Knowledge Journal, which you can open from the menu.",
         choices: [
           { label: 'What will I be able to learn here?', next: 'tracks' },
           { label: 'Where should a complete beginner start?', next: 'start' },
@@ -232,7 +232,7 @@ export const DIALOGUES = {
         ],
       },
       tracks: {
-        text: 'Every building in FinVora teaches something: trade at the Exchange, run SIPs at the Mutual Fund Centre, open FDs at the Bank, try PPF and NSC at the Government Savings Office, and every calculator lives at the Calculator Centre. Here, try the Doubling Lab beside this desk.',
+        text: 'Every building in FinVora teaches something: trade at the Exchange, run SIPs at the Mutual Funds counter in AccoFinTra Tower, open FDs at the Bank, try PPF and NSC at the Small Savings counter in AccoFinTra Tower, and every calculator lives at the Calculators counter in AccoFinTra Tower. Here, try the Doubling Lab beside this desk.',
         choices: [{ label: 'Where should I start?', next: 'start' }, bye()],
       },
       start: {

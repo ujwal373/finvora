@@ -254,13 +254,26 @@ export class NPCManager {
   update(dt, hour, playerPos, camera, cullRange = 200) {
     this.pairTimer -= dt;
     if (this.pairTimer <= 0) { this.pairTimer = 1.5; this._pairChats(); }
+    const tags = this._tags || (this._tags = []); tags.length = 0;
     for (const n of this.npcs) {
       n.chatCooldown -= dt;
       n.update(dt, hour, playerPos);
-      n.object.visible = Math.hypot(n.pos.x - camera.position.x, n.pos.z - camera.position.z) < cullRange;
+      n.object.visible = !n.onDuty && Math.hypot(n.pos.x - camera.position.x, n.pos.z - camera.position.z) < cullRange;
       if (n.label) {
         const d = Math.hypot(n.pos.x - playerPos.x, n.pos.z - playerPos.z);
-        n.label.visible = d < this.nameTagRange;
+        n.label.visible = n.object.visible && d < this.nameTagRange;
+        if (n.label.visible) { n._tagD = d; tags.push(n); }
+      }
+    }
+    // Never let name tags overlap on screen: the nearer person keeps theirs, the farther one hides it.
+    if (tags.length > 1) {
+      tags.sort((a, b) => a._tagD - b._tagD);
+      const v = this._v || (this._v = new THREE.Vector3()), shown = [];
+      for (const n of tags) {
+        v.set(n.pos.x, 2.45 + (n.object.position.y || 0), n.pos.z).project(camera);
+        const w = 0.16 * (12 / Math.max(4, n._tagD)), h = w * 0.3;
+        if (shown.some((s) => Math.abs(s.x - v.x) < (s.w + w) / 2 && Math.abs(s.y - v.y) < (s.h + h) / 2)) { n.label.visible = false; continue; }
+        shown.push({ x: v.x, y: v.y, w, h });
       }
     }
   }

@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CITY } from '../config.js';
+import { signalAt, isSignalised, STOP_LINE } from './Signals.js';
+import logoUrl from '../assets/accofintra-logo.jpg';
 
 // Road traffic. Vehicles follow the boulevard grid, keep LEFT (Indian rule of the road),
 // pick a random turn at every junction, slow for corners and brake for pedestrians,
 // the player and the vehicle ahead. Each vehicle is one merged, vertex-coloured mesh (1 draw call).
 
-const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
-const glassMat = new THREE.MeshLambertMaterial({ color: 0x8fb4c8, emissive: 0x0b1620, transparent: true, opacity: 0.42, depthWrite: false });
+// Glossy paint and tinted glass: they pick up reflections from the scene's environment lighting.
+const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0x5f7f92, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.5, depthWrite: false });
 const col = new THREE.Color();
 function paint(g, color) {
   col.setHex(color).convertSRGBToLinear();
@@ -61,7 +64,11 @@ export const MODELS = {
   suv: (c, d = true) => { const m = car(c, { L: 4.6, W: 2.0, r: 0.42, bodyH: 0.85, cabL: 3.1, cabH: 0.72, cabZ: -0.3, drv: d }); m.parts.push(box(1.6, 0.06, 0.06, -0.0, 2.18, -0.9, 0x222222), box(1.6, 0.06, 0.06, 0, 2.18, 0.4, 0x222222)); return { L: 4.6, W: 2.0, speed: 9, ...m }; },
   ev: (c, d = true) => { const m = car(c, { L: 4.4, W: 1.9, bodyH: 0.56, cabL: 2.6, cabH: 0.58, cabZ: -0.15, light: 0x9fe6ff, drv: d }); m.parts.push(box(1.7, 0.05, 0.05, 0, 0.62, 2.2, 0x7fd8ff), box(1.7, 0.05, 0.05, 0, 0.62, -2.2, 0xe5534b)); return { L: 4.4, W: 1.9, speed: 10, ...m }; },
   sports: (c, d = true) => { const m = car(c, { L: 4.5, W: 1.98, r: 0.36, bodyH: 0.46, cabL: 1.8, cabH: 0.48, cabZ: -0.35, roof: 0x111111, drv: d }); m.parts.push(box(1.98, 0.06, 0.4, 0, 1.08, -2.05, 0x111111), box(0.1, 0.32, 0.1, -0.7, 0.9, -2.05, 0x111111), box(0.1, 0.32, 0.1, 0.7, 0.9, -2.05, 0x111111), box(0.5, 0.04, 1.3, 0, 0.74, 1.3, 0x111111)); return { L: 4.5, W: 1.98, speed: 12, ...m }; },
-  player: (c = 0xd4a846, d = false) => { const m = car(c, { L: 4.3, W: 1.9, bodyH: 0.56, cabL: 2.0, cabH: 0.55, cabZ: -0.35, roof: 0x141414, drv: d }); m.parts.push(box(0.42, 0.02, 4.0, 0, 0.82, 0, 0x101010), box(1.9, 0.06, 0.45, 0, 1.12, -2.0, 0x101010), box(0.1, 0.28, 0.1, -0.7, 0.96, -2.0, 0x101010), box(0.1, 0.28, 0.1, 0.7, 0.96, -2.0, 0x101010)); return { L: 4.3, W: 1.9, speed: 0, ...m }; },
+  player: (c = 0x1800ad, d = false) => { const m = car(c, { L: 4.3, W: 1.9, bodyH: 0.56, cabL: 2.0, cabH: 0.55, cabZ: -0.35, roof: 0xf2f2ee, trim: 0x101010, drv: d });
+    m.parts.push(box(0.16, 0.02, 4.0, -0.14, 0.82, 0, 0xf2f2ee), box(0.16, 0.02, 4.0, 0.14, 0.82, 0, 0xf2f2ee), box(0.03, 0.021, 4.0, 0, 0.82, 0, 0xd4a846), // twin white stripes, gold pinstripe
+      box(0.02, 0.05, 3.7, -0.955, 0.33, 0, 0xd4a846), box(0.02, 0.05, 3.7, 0.955, 0.33, 0, 0xd4a846),                                   // gold side lines
+      box(1.9, 0.06, 0.45, 0, 1.12, -2.0, 0xf2f2ee), box(0.1, 0.28, 0.1, -0.7, 0.96, -2.0, 0x101010), box(0.1, 0.28, 0.1, 0.7, 0.96, -2.0, 0x101010));
+    return { L: 4.3, W: 1.9, speed: 0, brand: true, ...m }; },
   hatchP: (c) => MODELS.hatch(c, false),
   sedanP: (c) => MODELS.sedan(c, false),
   scooter: (c) => ({ L: 1.85, W: 0.7, speed: 0, rider: 'scooter', parts: [
@@ -100,7 +107,7 @@ const PAINT = [0xc0392b, 0x2e86de, 0xecf0f1, 0x7f8c8d, 0x27ae60, 0x34495e, 0xd35
 const MIX = ['hatch', 'hatch', 'sedan', 'sedan', 'taxi', 'auto', 'auto', 'suv', 'ev', 'bus', 'hatch', 'sedan', 'sports'];
 
 /** Seat positions in vehicle-local space (x left+, y up, z forward) for the player when driving. */
-export const SEATS = { scooter: { x: 0, y: 0.98, z: -0.35, pose: 'ride' }, auto: { x: 0, y: 0.92, z: 0.25, pose: 'sit' }, car: { x: -0.38, y: 0.62, z: -0.15, pose: 'sit' } };
+export const SEATS = { scooter: { x: 0, y: 0.98, z: -0.35, pose: 'ride' }, auto: { x: 0, y: 0.92, z: 0.25, pose: 'sit' }, car: { x: -0.38, y: 0.2, z: -0.1, pose: 'sit' } }; // y = hip height: low enough that the head stays under the roof
 
 /** Builds a vehicle as a group: one opaque merged mesh plus one transparent glass mesh. */
 export function vehicleMesh(kind, color) {
@@ -111,7 +118,19 @@ export function vehicleMesh(kind, color) {
   if (spec.glass && spec.glass.length) { const glass = new THREE.Mesh(mergeGeometries(spec.glass), glassMat); glass.renderOrder = 1; group.add(glass); }
   spec.parts.forEach((p) => p.dispose()); (spec.glass || []).forEach((p) => p.dispose());
   group.userData.body = body;
+  if (spec.brand) brandVehicle(group, spec.L, spec.W);
   return { mesh: group, L: spec.L, W: spec.W, rider: spec.rider || 'car' };
+}
+
+let logoTex = null, logoMat = null;
+/** AccoFinTra logo decals on both doors and the bonnet of the company car. */
+export function brandVehicle(group, L, W, { doorY = 0.6, bonnetY = 0.836 } = {}) {
+  if (typeof document === 'undefined') return group;
+  logoTex ||= new THREE.TextureLoader().load(logoUrl, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; });
+  logoTex.colorSpace = THREE.SRGBColorSpace; logoTex.anisotropy = 4;
+  logoMat ||= new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.35, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2 });
+  for (const s of [-1, 1]) { const d = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), logoMat); d.position.set(s * (W / 2 + 0.012), doorY, -0.15); d.rotation.y = s * Math.PI / 2; group.add(d); }
+  const hood = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), logoMat); hood.rotation.x = -Math.PI / 2; hood.position.set(0, bonnetY, L / 2 - 0.62); group.add(hood);
 }
 
 export class Traffic {
@@ -154,33 +173,51 @@ export class Traffic {
       ? { x: B.x + leftIn.x * L, z: B.z + leftIn.z * L }
       : { x: B.x + (leftIn.x + leftOut.x) * L, z: B.z + (leftIn.z + leftOut.z) * L };
     car.turning = !straight;
+    car.fin = fin; car.leftIn = leftIn;
   }
 
   update(dt, pedestrians, camPos, cullRange, others = []) {
+    this.t = (this.t || 0) + dt;
     for (const car of this.cars) {
       const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
       const rx = -fz, rz = fx;
       // ---- look ahead for anything to brake for
       let limit = car.vmax;
       const reach = car.L / 2 + 2.5 + car.speed * 1.1;
-      let blockedByCar = false;
-      const check = (ox, oz, halfWidth, isCar) => {
+      let blockedByCar = false, blocker = null;
+      const check = (ox, oz, halfWidth, isCar, who = null) => {
         const dx = ox - car.pos.x, dz = oz - car.pos.z;
         const ahead = dx * fx + dz * fz;
         if (ahead <= 0 || ahead > reach + (isCar ? 2 : 0)) return;
         if (Math.abs(dx * rx + dz * rz) > car.W / 2 + halfWidth) return;
         const gap = ahead - car.L / 2 - (isCar ? 2.2 : 1.2);
         const v = Math.max(0, gap) * 1.2;
-        if (v < limit) { limit = v; if (isCar) blockedByCar = true; }
+        if (v < limit) { limit = v; if (isCar) { blockedByCar = true; blocker = who; } }
       };
       for (const p of pedestrians) check(p.x, p.z, 0.6, false);
-      if (car.ghost <= 0) for (const o of this.cars) if (o !== car) check(o.pos.x, o.pos.z, o.W / 2, true);
+      if (car.ghost <= 0) for (const o of this.cars) if (o !== car) check(o.pos.x, o.pos.z, o.W / 2, true, o);
       for (const o of others) check(o.pos.x, o.pos.z, o.W / 2 + 0.6, true);
       // ---- corner speed
       const dT = Math.hypot(car.target.x - car.pos.x, car.target.z - car.pos.z);
       if (car.turning && dT < 14) limit = Math.min(limit, 4.2 + dT * 0.25);
-      // ---- deadlock breaker: after waiting behind cars for a while, creep through
-      if (car.speed < 0.2 && blockedByCar) { car.wait += dt; if (car.wait > 5) { car.ghost = 2; car.wait = 0; } } else car.wait = 0;
+      // ---- traffic signal at the junction ahead: stop at the line on red (and on amber if there is room to stop)
+      car.atSignal = false;
+      const Bn = this.nav.nodes[car.b];
+      if (isSignalised(Bn.x, Bn.z)) {
+        const dB = Math.abs((Bn.x - car.pos.x) * car.fin.x + (Bn.z - car.pos.z) * car.fin.z);
+        const gap = dB - STOP_LINE;
+        if (gap > -0.5 && gap < 40) {
+          const light = signalAt(this.t, Bn.x, Bn.z, Math.abs(car.fin.x) > 0.5 ? 'x' : 'z');
+          const canStop = gap > (car.speed * car.speed) / (2 * 7) + 0.5;
+          if (light === 'red' || (light === 'amber' && canStop)) {
+            const v = Math.max(0, gap) * 0.9;
+            if (v < limit) { limit = v; car.atSignal = gap < 6; }
+          }
+        }
+      }
+      // ---- queueing behind a car that waits at a signal is normal; only a real jam triggers the creep-through
+      car.queued = !!(blockedByCar && blocker && (blocker.atSignal || blocker.queued));
+      if (car.speed < 0.2 && blockedByCar && !car.queued) { car.wait += dt; if (car.wait > 5) { car.ghost = 2; car.wait = 0; } } else car.wait = 0;
       car.ghost -= dt;
 
       const accel = limit > car.speed ? 4 : 10;
@@ -196,6 +233,15 @@ export class Traffic {
       const hx = Math.sin(car.heading), hz = Math.cos(car.heading);
       car.pos.x += (hx * 0.6 + (dx / d) * 0.4) * step;
       car.pos.z += (hz * 0.6 + (dz / d) * 0.4) * step;
+      // Lane discipline: between junctions, hold the centre of the LEFT lane (never drift towards the middle).
+      const A = this.nav.nodes[car.a], B = this.nav.nodes[car.b];
+      if (Math.hypot(car.pos.x - A.x, car.pos.z - A.z) > 9 && Math.hypot(car.pos.x - B.x, car.pos.z - B.z) > 9) {
+        const ex = car.pos.x - (B.x + car.leftIn.x * CITY.laneOffset), ez = car.pos.z - (B.z + car.leftIn.z * CITY.laneOffset);
+        const lat = ex * car.leftIn.x + ez * car.leftIn.z, k = Math.min(1, dt * 4);
+        car.pos.x -= car.leftIn.x * lat * k; car.pos.z -= car.leftIn.z * lat * k;
+        let dh2 = Math.atan2(car.fin.x, car.fin.z) - car.heading; dh2 = Math.atan2(Math.sin(dh2), Math.cos(dh2));
+        car.heading += dh2 * Math.min(1, dt * 3);
+      }
       if (d < 1.2) { car.a = car.b; car.b = car.c; this._chooseNext(car); }
 
       car.mesh.position.set(car.pos.x, 0, car.pos.z);

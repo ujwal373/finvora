@@ -87,7 +87,7 @@ export class Player {
   seatIn(group, seat) {
     this.seated = { group, seat };
     group.add(this.object);
-    this.object.position.set(seat.x, seat.y - 0.9, seat.z);
+    this.object.position.set(seat.x, seat.y - 0.9 * this.object.scale.y, seat.z); // hips on the seat whatever your height
     this.object.rotation.set(0, 0, 0);
     this.object.visible = true;
     seatPose(this.char, seat.pose);

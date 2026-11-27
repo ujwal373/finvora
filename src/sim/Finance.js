@@ -88,7 +88,8 @@ export class Finance {
       Object.assign(this, structuredClone(rest));
       this.ledger = (ledger || []).map((e) => Object.freeze({ ...e }));
       this.market = new Market(market);
-      this.garage ||= [{ id: 'CAR0', catalogId: 'coupe', color: 0xd4a846, price: 0, bought: this.start, gift: true }];
+      this.garage ||= [{ id: 'CAR0', catalogId: 'coupe', color: 0x1800ad, price: 0, bought: this.start, gift: true }];
+      const gift = this.garage.find((c) => c.gift); if (gift && gift.color === 0xd4a846 && !gift.repainted) { gift.color = 0x1800ad; gift.repainted = true; } // company car now wears AccoFinTra colours
       this.wardrobe ||= [];
       this._settleRetired();
       this._initLife();
@@ -105,7 +106,7 @@ export class Finance {
       this.savingsAccrued = 0;
       this.declaredAge = null;
       this.seq = 0;
-      this.garage = [{ id: 'CAR0', catalogId: 'coupe', color: 0xd4a846, price: 0, bought: this.start, gift: true }];
+      this.garage = [{ id: 'CAR0', catalogId: 'coupe', color: 0x1800ad, price: 0, bought: this.start, gift: true }];
       this.wardrobe = [];
       this.market = new Market();
       this._log({ type: 'opening', name: 'Virtual wallet opened', amount: STARTING_BALANCE, note: 'Simulated money for learning. Not real.' });
@@ -176,29 +177,75 @@ export class Finance {
   qty(code) { return (this.holdings[code] || []).reduce((s, l) => s + l.qty, 0); }
   invested(code) { return (this.holdings[code] || []).reduce((s, l) => s + l.qty * l.price, 0); }
 
+  // ---------------------------------------------------------------- exchange hours and charges
+  /** Equity market hours: 9:15 am to 3:30 pm on weekdays (game clock). Without a clock (tests), always open. */
+  marketOpen() {
+    if (this.clockHour == null) return true;
+    const w = parseDate(this.date).getUTCDay();
+    return w !== 0 && w !== 6 && this.clockHour >= 9.25 && this.clockHour < 15.5;
+  }
+
+  /** Contract-note charges for a delivery trade (rates modelled on Indian exchanges; brokerage illustrative). */
+  tradeCharges(side, value, type = 'stock') {
+    const r = (v) => Math.round(v * 100) / 100;
+    const brokerage = r(Math.min(20, value * 0.001));
+    const stt = r(type === 'etf' ? (side === 'sell' ? value * 0.00001 : 0) : value * 0.001);
+    const exch = r(value * 0.0000297), sebi = r(value * 0.000001);
+    const stamp = side === 'buy' ? r(value * 0.00015) : 0;
+    const gst = r((brokerage + exch + sebi) * 0.18);
+    const dp = side === 'sell' ? 15.93 : 0;
+    const total = r(brokerage + stt + exch + sebi + stamp + gst + dp);
+    return { brokerage, stt, exch, sebi, stamp, gst, dp, total };
+  }
+
+  _amoQueue(side, code, qty) {
+    const info = instrumentInfo(code);
+    this.amo ||= [];
+    const o = { id: `AMO${++this.seq}`, side, code, qty, placed: this.date };
+    this.amo.push(o);
+    this._emit({ type: 'trade' });
+    this._log({ type: 'amo', asset: info?.type, code, name: `After-market order: ${side} ${qty} × ${code}`, amount: 0, note: 'Market is closed (open 9:15 am to 3:30 pm on weekdays). It will execute at the next open at that price.' });
+    return { amo: true, ...o };
+  }
+
+  /** Run queued after-market orders once the market opens. Returns results for the HUD. */
+  executeAMO() {
+    if (!this.amo?.length || !this.marketOpen()) return [];
+    const out = [], list = this.amo; this.amo = [];
+    for (const o of list) {
+      try { out.push({ ok: true, o, e: o.side === 'buy' ? this.buyShares(o.code, o.qty) : this.sellShares(o.code, o.qty) }); }
+      catch (err) { out.push({ ok: false, o, msg: err.message }); this._log({ type: 'amo-rejected', code: o.code, name: `After-market order rejected: ${o.side} ${o.qty} × ${o.code}`, amount: 0, note: err.message }); }
+    }
+    return out;
+  }
+  cancelAMO(id) { this.amo = (this.amo || []).filter((o) => o.id !== id); this._emit({ type: 'trade' }); }
+
   buyShares(code, qty) {
     const info = instrumentInfo(code);
     if (!info || !['stock', 'etf'].includes(info.type)) throw new FinError('Unknown share or ETF.');
     if (!Number.isInteger(qty) || qty <= 0) throw new FinError('Quantity must be a whole number of at least 1.');
-    const price = this.market.price(code);
-    const amount = this._debit(qty * price, `${qty} × ${code}`);
-    this._addLot(code, qty, price);
+    if (!this.marketOpen()) return this._amoQueue('buy', code, qty);
+    const price = this.market.price(code), value = qty * price, ch = this.tradeCharges('buy', value, info.type);
+    if (value + ch.total > this.cash + 1e-6) throw new FinError(`Not enough cash: this order needs ${Math.ceil(value + ch.total).toLocaleString('en-IN')} including charges.`);
+    const amount = this._debit(value + ch.total, `${qty} × ${code}`);
+    this._addLot(code, qty, amount / qty); // charges become part of your cost
     this._emit({ type: 'trade' });
-    return this._log({ type: 'buy', asset: info.type, code, name: info.name, qty, price, amount: -amount, flow: -amount });
+    return this._log({ type: 'buy', asset: info.type, code, name: info.name, qty, price, amount: -amount, flow: -amount, charges: ch.total, note: `Value ${value.toFixed(2)} + charges ${ch.total.toFixed(2)} (brokerage ${ch.brokerage}, STT ${ch.stt}, stamp ${ch.stamp}, exchange and SEBI ${(ch.exch + ch.sebi).toFixed(2)}, GST ${ch.gst})` });
   }
 
   sellShares(code, qty) {
     const info = instrumentInfo(code);
     if (!Number.isInteger(qty) || qty <= 0) throw new FinError('Quantity must be a whole number of at least 1.');
     if (qty > this.qty(code) + 1e-9) throw new FinError(`You hold only ${this.qty(code)} ${code}.`);
-    const price = this.market.price(code);
+    if (!this.marketOpen()) return this._amoQueue('sell', code, qty);
+    const price = this.market.price(code), value = qty * price, ch = this.tradeCharges('sell', value, info.type);
     const { cost, used } = this._removeFIFO(code, qty);
-    this._gainFromCode(code, used, price);
-    const amount = Math.round(qty * price * 100) / 100;
+    this._gainFromCode(code, used, price - ch.total / qty);
+    const amount = Math.round((value - ch.total) * 100) / 100;
     this._credit(amount);
     const pl = amount - cost; this.realised += pl;
     this._emit({ type: 'trade' });
-    return this._log({ type: 'sell', asset: info.type, code, name: info.name, qty, price, amount, flow: amount, pl: Math.round(pl * 100) / 100 });
+    return this._log({ type: 'sell', asset: info.type, code, name: info.name, qty, price, amount, flow: amount, pl: Math.round(pl * 100) / 100, charges: ch.total, note: `Value ${value.toFixed(2)} − charges ${ch.total.toFixed(2)} (brokerage ${ch.brokerage}, STT ${ch.stt}, DP ${ch.dp}, GST ${ch.gst})` });
   }
 
   buyFund(code, amount, { via = 'lumpsum' } = {}) {
